@@ -6,6 +6,7 @@ import { Circle, CircleMarker, Marker, Polyline, Tooltip, useMap, useMapEvents }
 
 import type { RoadContext } from "@/domains/incidents/types";
 
+import type { StreetImage } from "../street-view";
 import BaseMap from "./base-map";
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
   fallbackCenter: [number, number];
   onMove: (lat: number, lng: number) => void;
   onZoomChange?: (zoom: number) => void;
+  onStreetImagePick?: (image: StreetImage) => void;
 };
 
 const pinIcon = L.divIcon({
@@ -44,7 +46,7 @@ function TapToPlace({ onMove }: { onMove: Props["onMove"] }) {
   return null;
 }
 
-export default function LocationPicker({ position, accuracy, road, fallbackCenter, onMove, onZoomChange }: Props) {
+export default function LocationPicker({ position, accuracy, road, fallbackCenter, onMove, onZoomChange, onStreetImagePick }: Props) {
   const handlers = useMemo(
     () => ({
       dragend: (e: L.DragEndEvent) => {
@@ -65,6 +67,7 @@ export default function LocationPicker({ position, accuracy, road, fallbackCente
       // The report form shows Street View below this small map so it never hides the pin.
       streetView="off"
       onViewChange={onZoomChange ? (view) => onZoomChange(view.zoom) : undefined}
+      onStreetImagePick={onStreetImagePick}
     >
       <Recenter position={position} />
       <TapToPlace onMove={onMove} />

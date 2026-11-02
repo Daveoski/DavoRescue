@@ -5,14 +5,16 @@ import dynamic from "next/dynamic";
 
 import { cn } from "@/shared/lib/cn";
 import { distance } from "@/shared/lib/format";
-import type { LatLng } from "@/shared/lib/geo";
+import { distanceMeters, type LatLng } from "@/shared/lib/geo";
 
 import {
   captureMonth,
   googleStreetViewUrl,
   mapillaryUrl,
-  SEARCH_RADIUS_M,
+  NEAR_M,
+  SEARCH_STEPS_M,
   streetViewEnabled,
+  type StreetImage,
   type StreetImageLookup,
 } from "../street-view";
 import { useStreetImage } from "../use-street-image";
@@ -27,10 +29,15 @@ const MapillaryViewer = dynamic(() => import("./mapillary-viewer"), {
   ),
 });
 
+export type StreetViewSubject = "pin" | "incident" | "map centre";
+
 type PanelProps = {
   target: LatLng;
+  subject: StreetViewSubject;
   lookup: StreetImageLookup | null;
   loading: boolean;
+  /** A photo the user tapped on the map; shown instead of the automatic pick. */
+  picked?: StreetImage | null;
   variant: "overlay" | "inline";
   expanded?: boolean;
   onToggleExpand?: () => void;
@@ -58,7 +65,25 @@ function GoogleFallback({ target, text }: { target: LatLng; text: string }) {
   );
 }
 
-export function StreetViewPanel({ target, lookup, loading, variant, expanded, onToggleExpand, onClose, onWalk }: PanelProps) {
+function describe(image: StreetImage, target: LatLng, subject: StreetViewSubject, picked: boolean): string {
+  const away = distanceMeters(image.position, target);
+  const where =
+    picked || away <= NEAR_M ? `${distance(away)} from ${subject}` : `Nearest street photo · ${distance(away)} from ${subject}`;
+  return [where, captureMonth(image.capturedAt), image.creator && `© ${image.creator}`].filter(Boolean).join(" · ");
+}
+
+export function StreetViewPanel({
+  target,
+  subject,
+  lookup,
+  loading,
+  picked,
+  variant,
+  expanded,
+  onToggleExpand,
+  onClose,
+  onWalk,
+}: PanelProps) {
   // Without a Mapillary token, offer Google's Street View instead of an empty frame.
   if (!streetViewEnabled) {
     return (
@@ -87,12 +112,9 @@ export function StreetViewPanel({ target, lookup, loading, variant, expanded, on
     );
   }
 
-  const image = lookup?.status === "found" ? lookup.image : null;
-  const meta = image
-    ? [`${captureMonth(image.capturedAt)}`, `${distance(image.distance)} from ${variant === "inline" ? "incident" : "pin"}`]
-        .concat(image.creator ? [`© ${image.creator}`] : [])
-        .join(" · ")
-    : "";
+  const image = picked ?? (lookup?.status === "found" ? lookup.image : null);
+  const meta = image ? describe(image, target, subject, Boolean(picked)) : "";
+  const furthest = SEARCH_STEPS_M[SEARCH_STEPS_M.length - 1];
 
   return (
     <section
@@ -113,7 +135,7 @@ export function StreetViewPanel({ target, lookup, loading, variant, expanded, on
         <span className="min-w-0 flex-1 truncate opacity-70" title={meta}>
           {meta}
         </span>
-        {loading && <span className="loading loading-spinner loading-xs opacity-70" aria-label="Loading" />}
+        {loading && !picked && <span className="loading loading-spinner loading-xs opacity-70" aria-label="Loading" />}
         {onToggleExpand && (
           <IconButton label={expanded ? "Shrink Street View" : "Expand Street View"} onClick={onToggleExpand}>
             {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
@@ -144,7 +166,7 @@ export function StreetViewPanel({ target, lookup, loading, variant, expanded, on
             {!lookup || loading ? (
               <span className="loading loading-dots loading-md opacity-60" aria-label="Finding street photos" />
             ) : lookup.status === "none" ? (
-              <GoogleFallback target={target} text={`No Mapillary street photos within ${SEARCH_RADIUS_M} m of this spot yet.`} />
+              <GoogleFallback target={target} text={`No Mapillary street photos within ${distance(furthest)} of this spot yet.`} />
             ) : (
               <GoogleFallback target={target} text="Street photos couldn’t load right now." />
             )}
@@ -156,7 +178,15 @@ export function StreetViewPanel({ target, lookup, loading, variant, expanded, on
 }
 
 /** Self-contained Street View for a fixed point, e.g. an incident in the responder console. */
-export function InlineStreetView({ target }: { target: LatLng }) {
+export function InlineStreetView({
+  target,
+  subject,
+  picked,
+}: {
+  target: LatLng;
+  subject: StreetViewSubject;
+  picked?: StreetImage | null;
+}) {
   const { lookup, loading } = useStreetImage(target);
-  return <StreetViewPanel target={target} lookup={lookup} loading={loading} variant="inline" />;
+  return <StreetViewPanel target={target} subject={subject} lookup={lookup} loading={loading} picked={picked} variant="inline" />;
 }

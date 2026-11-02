@@ -11,7 +11,7 @@ import { RoadBadge } from "@/domains/incidents/components/badges";
 import type { ReportReceipt, RoadContext } from "@/domains/incidents/types";
 import { LocationPicker } from "@/domains/map/components/lazy";
 import { InlineStreetView } from "@/domains/map/components/street-view-panel";
-import { STREET_VIEW_ZOOM } from "@/domains/map/street-view";
+import { STREET_VIEW_ZOOM, streetViewEnabled, type StreetImage } from "@/domains/map/street-view";
 import { ApiError } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
 import { coords } from "@/shared/lib/format";
@@ -55,6 +55,8 @@ export function ReportForm() {
   const [type, setType] = useState<IncidentType | null>(null);
   const [manualPin, setManualPin] = useState<Pin | null>(null);
   const [mapZoom, setMapZoom] = useState(0);
+  // A street photo the reporter tapped on the map, tied to the pin it was chosen for.
+  const [streetPick, setStreetPick] = useState<{ image: StreetImage; forPin: string } | null>(null);
   const [roadResult, setRoadResult] = useState<{ key: string; ctx: RoadContext | null } | null>(null);
   const [photos, setPhotos] = useState<EvidencePhoto[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -183,11 +185,15 @@ export function ReportForm() {
             fallbackCenter={ENUGU}
             onMove={movePin}
             onZoomChange={setMapZoom}
+            onStreetImagePick={(image) => pinKey && setStreetPick({ image, forPin: pinKey })}
           />
         </div>
         {pin && mapZoom >= STREET_VIEW_ZOOM && (
           <div className="mt-3">
-            <InlineStreetView target={pin} />
+            <InlineStreetView target={pin} subject="pin" picked={streetPick?.forPin === pinKey ? streetPick.image : null} />
+            {streetViewEnabled && (
+              <p className="mt-1.5 text-xs text-base-content/60">Green dots on the map are other street photos — tap one to look from there.</p>
+            )}
           </div>
         )}
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">

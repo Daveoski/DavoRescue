@@ -249,7 +249,7 @@ function IncidentPanel({ incidentRef, onClose, onChanged }: { incidentRef: strin
             <Navigation className="size-4" /> Directions
           </a>
           <div className="mt-4">
-            <InlineStreetView target={{ lat: i.lat, lng: i.lng }} />
+            <InlineStreetView target={{ lat: i.lat, lng: i.lng }} subject="incident" />
           </div>
         </section>
 
