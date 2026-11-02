@@ -5,7 +5,7 @@ import { prettyPhone } from "@/shared/lib/format";
 
 export function EmergencyStrip() {
   return (
-    <div className="relative bg-secondary text-secondary-content">
+    <div className="relative bg-neutral text-neutral-content">
       <div className="hazard absolute inset-y-0 left-0 w-2 sm:w-3" aria-hidden />
       <div className="wrap flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-2 text-sm">
         <p>

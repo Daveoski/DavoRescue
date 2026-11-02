@@ -111,7 +111,7 @@
     background-image: repeating-linear-gradient(
       -45deg,
       var(--color-accent) 0 10px,
-      var(--color-secondary) 10px 20px
+      var(--color-neutral) 10px 20px
     );
   }
   .grid-paper {
@@ -151,9 +151,12 @@
 .leaflet-control-attribution {
   font-size: 10px;
 }
-/* OSM only publishes a light style; dim and invert it so night-time use doesn't glare. */
+/* OSM only publishes a light style; dim and invert it in the dark theme so night-time use doesn't glare. */
+[data-theme="davo-night"] .tiles-streets {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
+}
 @media (prefers-color-scheme: dark) {
-  .tiles-streets {
+  :root:not([data-theme]) .tiles-streets {
     filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
   }
 }

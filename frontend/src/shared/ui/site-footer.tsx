@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { site, states } from "@/shared/config/site";
+import { ThemeSwitch } from "@/shared/theme/theme-toggle";
 
 import { Logo } from "./logo";
 
@@ -55,9 +56,10 @@ export function SiteFooter() {
         </nav>
       </div>
       <div className="border-t border-base-300">
-        <p className="wrap py-5 text-xs text-base-content/55">
-          © {YEAR} DavoRescue · Map data © OpenStreetMap contributors
-        </p>
+        <div className="wrap flex flex-wrap items-center justify-between gap-4 py-5">
+          <p className="text-xs text-base-content/55">© {YEAR} DavoRescue · Map data © OpenStreetMap contributors · Street photos © Mapillary contributors</p>
+          <ThemeSwitch />
+        </div>
       </div>
     </footer>
   );

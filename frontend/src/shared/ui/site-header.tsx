@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 
 import { isResponder, useAuth, useSessionReady } from "@/domains/auth/store";
 import { cn } from "@/shared/lib/cn";
+import { ThemeMenu, ThemeSwitch } from "@/shared/theme/theme-toggle";
 
 import { Logo } from "./logo";
 
@@ -63,6 +64,9 @@ export function SiteHeader() {
         </Suspense>
 
         <div className="ml-auto flex items-center gap-2">
+          <span className="hidden md:inline-flex">
+            <ThemeMenu />
+          </span>
           {home ? (
             <>
               <Link href={home.href} className="btn btn-ghost btn-sm hidden sm:inline-flex">
@@ -117,6 +121,10 @@ export function SiteHeader() {
                 </button>
               </li>
             )}
+            <li className="flex items-center justify-between gap-3 py-3">
+              <span className="text-base font-medium">Theme</span>
+              <ThemeSwitch />
+            </li>
           </ul>
         </nav>
       )}

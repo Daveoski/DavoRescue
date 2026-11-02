@@ -78,20 +78,28 @@ All backend settings are environment variables — see [`backend/.env.example`](
 | `RESEND_API_KEY`, `DISPATCH_FROM_EMAIL` | Email dispatch |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web push alerts |
 | `RESPONDER_INVITE_CODE` | Code agency staff enter at sign-up to get the responder role |
-| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Frontend. Embeds Google Street View when a map is zoomed to street level (see below) |
+| `NEXT_PUBLIC_MAPILLARY_TOKEN` | Frontend. Mapillary client token for street-level photos when a map is zoomed in (see below) |
 
-### Street View
+### Street View (Mapillary)
 
-Zooming any map to street level (zoom 17+) opens Street View of the incident, the report pin or the map centre, turned to face the spot, with the camera position marked on the map. On the report form it appears below the map so it never hides the pin, and the responder console shows it for every incident.
+Zooming any map to street level (zoom 17+) opens an interactive street-level viewer for the incident, the report pin or the map centre. From the Mapillary photos within 150 m, it picks the one that is closest, most recent and — for ordinary photos — actually facing the spot. The camera position is marked on the map and follows you as you step between photos. On the report form the viewer appears below the map so it never hides the pin, and the responder console shows it for every incident. Where Mapillary has no photos yet, the panel offers Google Street View instead.
 
-To embed it, create a Google Cloud browser API key with only the **Maps Embed API** and **Street View Static API** enabled, restricted to the HTTP referrers `davorescue.vercel.app/*` and `localhost:3000/*`, then:
+The token is the Mapillary app's **client token** (`MLY|…`), which is meant to be public. Never put the client secret in the frontend.
 
 ```bash
-vercel env add NEXT_PUBLIC_GOOGLE_MAPS_KEY production --value "<key>" --no-sensitive --yes
+vercel env add NEXT_PUBLIC_MAPILLARY_TOKEN production --value "MLY|…" --no-sensitive --yes
 vercel deploy --prod
 ```
 
-Google doesn't charge for the Maps Embed API or Street View metadata lookups, but the Cloud project needs a billing account attached. Without a key, zooming in shows a button that opens the same spot in Google Maps' Street View instead.
+Coverage grows as people upload: anyone (including responders on patrol) can add photos with the Mapillary app.
+
+## Themes
+
+Every page supports light and dark themes. The header (and the mobile menu and footer) has a Light / Dark / System switch; the choice is saved on the device and applied by an inline script in `<head>` before the first paint, so pages never flash the wrong theme. Map tiles and the offline page follow the same choice.
+
+## Passwords
+
+Sign-up requires a confirmed password that meets the policy in [`backend/app/core/passwords.py`](backend/app/core/passwords.py) (mirrored in `frontend/src/domains/auth/password.ts` for live feedback): at least 10 characters, upper- and lower-case letters, a number and a symbol, not a common password, and not containing the person's name or phone number. The API enforces it, so it can't be bypassed from the browser.
 
 ### Going live checklist
 

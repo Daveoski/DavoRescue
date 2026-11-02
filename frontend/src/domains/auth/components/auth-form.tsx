@@ -1,23 +1,30 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import agencies from "@/domains/agencies/directory.json";
 import { ApiError } from "@/shared/lib/api-client";
+import { cn } from "@/shared/lib/cn";
 
 import { authApi } from "../api";
+import { checkPassword, passwordStrength } from "../password";
 import { fieldErrors, signInSchema, signUpSchema, type SignUpValues } from "../schemas";
 import { isResponder, useAuth } from "../store";
+import { PasswordField, PasswordRules } from "./password-field";
 
 type Mode = "signin" | "signup";
+type Values = SignUpValues & { identifier: string };
 
-const blankSignUp: SignUpValues = {
+const blank: Values = {
+  identifier: "",
   full_name: "",
   phone: "",
   email: "",
   password: "",
+  confirm_password: "",
   responder: false,
   invite_code: "",
   agency_slug: "",
@@ -26,15 +33,18 @@ const blankSignUp: SignUpValues = {
 export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
   const router = useRouter();
   const setSession = useAuth((s) => s.setSession);
-  const [values, setValues] = useState({ identifier: "", ...blankSignUp });
+  const [values, setValues] = useState<Values>(blank);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
 
-  const set = (key: keyof typeof values) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const value = e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value;
+  const update = (key: keyof Values, value: string | boolean) => {
     setValues((v) => ({ ...v, [key]: value }));
     setErrors((er) => ({ ...er, [key]: "", form: "" }));
   };
+
+  const checks = checkPassword(values.password, { name: values.full_name, phone: values.phone });
+  const strength = passwordStrength(checks, values.password);
+  const confirmState = !values.confirm_password ? null : values.confirm_password === values.password ? "match" : "mismatch";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,11 +59,14 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
       } else {
         const parsed = signUpSchema.safeParse(values);
         if (!parsed.success) return setErrors(fieldErrors(parsed.error));
-        const { responder, invite_code, agency_slug, email, ...rest } = parsed.data;
+        // The confirmation only exists in the browser; the API receives the password once.
+        const d = parsed.data;
         session = await authApi.signUp({
-          ...rest,
-          email: email || null,
-          ...(responder ? { invite_code, agency_slug: agency_slug || undefined } : {}),
+          full_name: d.full_name,
+          phone: d.phone,
+          password: d.password,
+          email: d.email || null,
+          ...(d.responder ? { invite_code: d.invite_code, agency_slug: d.agency_slug || undefined } : {}),
         });
       }
       setSession(session.token, session.user);
@@ -66,17 +79,13 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
     }
   }
 
-  const field = (
-    key: keyof typeof values,
-    label: string,
-    props: React.InputHTMLAttributes<HTMLInputElement> = {},
-  ) => (
+  const field = (key: keyof Values, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium">{label}</span>
       <input
-        className={`input input-lg w-full ${errors[key] ? "input-error" : ""}`}
+        className={cn("input input-lg w-full", errors[key] && "input-error")}
         value={values[key] as string}
-        onChange={set(key)}
+        onChange={(e) => update(key, e.target.value)}
         aria-invalid={Boolean(errors[key])}
         {...props}
       />
@@ -89,21 +98,59 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
       {mode === "signin" ? (
         <>
           {field("identifier", "Phone number or email", { autoComplete: "username", inputMode: "email" })}
-          {field("password", "Password", { type: "password", autoComplete: "current-password" })}
+          <PasswordField
+            label="Password"
+            value={values.password}
+            onChange={(v) => update("password", v)}
+            error={errors.password}
+            autoComplete="current-password"
+          />
         </>
       ) : (
         <>
           {field("full_name", "Full name", { autoComplete: "name" })}
           {field("phone", "Mobile number", { type: "tel", autoComplete: "tel", placeholder: "0803 123 4567" })}
           {field("email", "Email (optional)", { type: "email", autoComplete: "email" })}
-          {field("password", "Password", { type: "password", autoComplete: "new-password" })}
+
+          <div>
+            <PasswordField
+              label="Create a password"
+              value={values.password}
+              onChange={(v) => update("password", v)}
+              error={errors.password}
+              autoComplete="new-password"
+              describedBy="password-rules"
+            />
+            <PasswordRules id="password-rules" checks={checks} strength={strength} />
+          </div>
+
+          <div>
+            <PasswordField
+              label="Confirm password"
+              value={values.confirm_password}
+              onChange={(v) => update("confirm_password", v)}
+              error={errors.confirm_password}
+              autoComplete="new-password"
+              describedBy="confirm-state"
+            />
+            {confirmState && !errors.confirm_password && (
+              <p
+                id="confirm-state"
+                aria-live="polite"
+                className={cn("mt-1 flex items-center gap-1.5 text-xs", confirmState === "match" ? "text-success" : "text-warning")}
+              >
+                {confirmState === "match" ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                {confirmState === "match" ? "Passwords match" : "Doesn’t match yet"}
+              </p>
+            )}
+          </div>
 
           <label className="flex cursor-pointer items-start gap-3 rounded-box border border-base-300 p-3">
             <input
               type="checkbox"
               className="checkbox checkbox-sm mt-0.5"
               checked={values.responder}
-              onChange={set("responder")}
+              onChange={(e) => update("responder", e.target.checked)}
             />
             <span className="text-sm">
               <span className="font-medium">I&apos;m a responder</span>
@@ -116,7 +163,7 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
               {field("invite_code", "Invite code", { autoComplete: "off" })}
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium">Agency</span>
-                <select className="select select-lg w-full" value={values.agency_slug} onChange={set("agency_slug")}>
+                <select className="select select-lg w-full" value={values.agency_slug} onChange={(e) => update("agency_slug", e.target.value)}>
                   <option value="">Select your agency</option>
                   {agencies.agencies.map((a) => (
                     <option key={a.slug} value={a.slug}>

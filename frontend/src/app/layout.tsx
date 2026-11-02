@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono, Public_Sans } from "next/font/google";
 
 import { site } from "@/shared/config/site";
+import { themeInitScript } from "@/shared/theme/theme";
 import { EmergencyStrip } from "@/shared/ui/emergency-strip";
 import { JsonLd } from "@/shared/ui/json-ld";
 import { ServiceWorker } from "@/shared/ui/service-worker";
@@ -95,6 +96,10 @@ const organisation = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-NG" className={`${archivo.variable} ${publicSans.variable} ${plexMono.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Applies the saved light/dark choice before first paint, so no page flashes the wrong theme. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="flex min-h-dvh flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[999] focus:btn">
           Skip to content

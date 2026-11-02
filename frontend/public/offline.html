@@ -5,9 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>No connection · DavoRescue</title>
     <meta name="theme-color" content="#16181d" />
+    <script>
+      // Follow the light/dark choice saved by the main site.
+      try { var p = localStorage.getItem("davorescue-theme"); if (p) document.documentElement.setAttribute("data-mode", p); } catch (e) {}
+    </script>
     <style>
       :root { color-scheme: light dark; --ink: #16181d; --paper: #fbfaf7; --signal: #d63a1f; --line: #e5e0d5; }
-      @media (prefers-color-scheme: dark) { :root { --ink: #ece8df; --paper: #101216; --line: #252a33; } }
+      @media (prefers-color-scheme: dark) { :root:not([data-mode="light"]) { --ink: #ece8df; --paper: #101216; --line: #252a33; } }
+      :root[data-mode="dark"] { color-scheme: dark; --ink: #ece8df; --paper: #101216; --line: #252a33; }
+      :root[data-mode="light"] { color-scheme: light; }
       * { box-sizing: border-box; }
       body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--paper); color: var(--ink); }
       main { max-width: 32rem; margin: 0 auto; padding: 2rem 1rem 3rem; }

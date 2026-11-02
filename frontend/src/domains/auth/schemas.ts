@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { checkPassword, PASSWORD_MAX } from "./password";
+
 export const ngPhone = z
   .string()
   .trim()
@@ -16,14 +18,29 @@ export const signUpSchema = z
     full_name: z.string().trim().min(2, "Enter your name").max(80),
     phone: ngPhone,
     email: z.union([z.literal(""), z.email("Enter a valid email or leave it blank")]),
-    password: z.string().min(8, "Use at least 8 characters").max(128),
+    password: z.string().max(PASSWORD_MAX, `Use at most ${PASSWORD_MAX} characters`),
+    confirm_password: z.string(),
     responder: z.boolean(),
     invite_code: z.string().trim().max(64),
     agency_slug: z.string().trim().max(64),
   })
-  .refine((v) => !v.responder || v.invite_code.length > 0, {
-    path: ["invite_code"],
-    message: "Responder accounts need the invite code from your command",
+  .superRefine((v, ctx) => {
+    const missing = checkPassword(v.password, { name: v.full_name, phone: v.phone }).filter((c) => !c.ok);
+    if (missing.length) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: `Your password needs: ${missing.map((c) => c.label.toLowerCase()).join("; ")}`,
+      });
+    }
+    if (!v.confirm_password) {
+      ctx.addIssue({ code: "custom", path: ["confirm_password"], message: "Type your password again to confirm it" });
+    } else if (v.confirm_password !== v.password) {
+      ctx.addIssue({ code: "custom", path: ["confirm_password"], message: "The passwords don’t match" });
+    }
+    if (v.responder && !v.invite_code) {
+      ctx.addIssue({ code: "custom", path: ["invite_code"], message: "Responder accounts need the invite code from your command" });
+    }
   });
 
 export type SignInValues = z.infer<typeof signInSchema>;

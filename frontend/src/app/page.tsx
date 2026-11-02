@@ -262,7 +262,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-secondary text-secondary-content" aria-labelledby="app">
+      <section className="bg-neutral text-neutral-content" aria-labelledby="app">
         <div className="wrap grid items-center gap-10 py-16 md:grid-cols-[1fr_auto]">
           <div className="max-w-xl">
             <p className="font-mono text-xs uppercase tracking-[0.14em] opacity-60">Android app</p>

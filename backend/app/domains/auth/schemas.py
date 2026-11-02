@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, ValidationInfo, field_validator
+
+from app.core.passwords import MAX_LENGTH, password_problems
 
 Role = Literal["citizen", "responder", "admin"]
 
@@ -23,7 +25,7 @@ class RegisterIn(BaseModel):
     full_name: str = Field(min_length=2, max_length=80)
     phone: str
     email: EmailStr | None = None
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(max_length=MAX_LENGTH)
     invite_code: str | None = Field(default=None, max_length=64)
     agency_slug: str | None = Field(default=None, max_length=64)
 
@@ -36,6 +38,15 @@ class RegisterIn(BaseModel):
     @classmethod
     def _name(cls, v: str) -> str:
         return " ".join(v.split())
+
+    @field_validator("password")
+    @classmethod
+    def _strong_password(cls, v: str, info: ValidationInfo) -> str:
+        # full_name and phone are declared first, so they're already validated here.
+        problems = password_problems(v, full_name=info.data.get("full_name", ""), phone=info.data.get("phone", ""))
+        if problems:
+            raise ValueError(problems[0])
+        return v
 
 
 class LoginIn(BaseModel):

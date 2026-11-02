@@ -10,8 +10,8 @@ import { CircleMarker, LayerGroup, LayersControl, MapContainer, Polyline, TileLa
 import { cn } from "@/shared/lib/cn";
 import { distanceMeters, type LatLng } from "@/shared/lib/geo";
 
-import { STREET_VIEW_ZOOM, type Panorama } from "../street-view";
-import { usePanorama } from "../use-panorama";
+import { STREET_VIEW_ZOOM } from "../street-view";
+import { useStreetImage } from "../use-street-image";
 import { StreetViewPanel } from "./street-view-panel";
 
 // Keyless providers. OpenStreetMap's own tiles show estate roads, footpaths and
@@ -50,18 +50,18 @@ function ViewTracker({ onChange }: { onChange: (view: View) => void }) {
   return null;
 }
 
-/** Where the Street View photo was taken, joined to what it's looking at. */
-function CameraPoint({ pano, target }: { pano: Panorama; target: LatLng }) {
+/** Where the street photo was taken, joined to what it's looking at. */
+function CameraPoint({ position, target }: { position: LatLng; target: LatLng }) {
   return (
     <>
-      {pano.distance > 4 && (
+      {distanceMeters(position, target) > 4 && (
         <Polyline
-          positions={[[pano.position.lat, pano.position.lng], [target.lat, target.lng]]}
+          positions={[[position.lat, position.lng], [target.lat, target.lng]]}
           pathOptions={{ color: "#f2a93b", weight: 2, dashArray: "4 5" }}
         />
       )}
       <CircleMarker
-        center={[pano.position.lat, pano.position.lng]}
+        center={[position.lat, position.lng]}
         radius={7}
         pathOptions={{ color: "#16181d", weight: 2, fillColor: "#f2a93b", fillOpacity: 1 }}
       >
@@ -104,8 +104,11 @@ export default function BaseMap({
   const target =
     streetViewTarget && distanceMeters(streetViewTarget, view.center) < TARGET_FOLLOW_LIMIT_M ? streetViewTarget : view.center;
   const open = streetLevel && !dismissed;
-  const { lookup, loading } = usePanorama(open ? target : null);
-  const pano = open && lookup?.status === "found" ? lookup.pano : null;
+  const { lookup, loading } = useStreetImage(open ? target : null);
+  const image = open && lookup?.status === "found" ? lookup.image : null;
+  // When the user walks to neighbouring photos in the viewer, move the camera marker with them.
+  const [walk, setWalk] = useState<{ startId: string; position: LatLng } | null>(null);
+  const cameraPosition = image ? (walk?.startId === image.id ? walk.position : image.position) : null;
 
   return (
     <div className={cn("@container relative isolate h-full w-full", className)}>
@@ -127,7 +130,7 @@ export default function BaseMap({
             </LayerGroup>
           </LayersControl.BaseLayer>
         </LayersControl>
-        {pano && <CameraPoint pano={pano} target={target} />}
+        {cameraPosition && <CameraPoint position={cameraPosition} target={target} />}
         {children}
       </MapContainer>
 
@@ -140,6 +143,7 @@ export default function BaseMap({
           expanded={expanded}
           onToggleExpand={() => setExpanded((e) => !e)}
           onClose={() => setDismissed(true)}
+          onWalk={(step) => image && setWalk({ startId: image.id, position: step.position })}
         />
       )}
       {streetLevel && dismissed && (

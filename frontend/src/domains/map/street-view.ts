@@ -2,82 +2,107 @@ import { bearing, distanceMeters, type LatLng } from "@/shared/lib/geo";
 
 /** Leaflet zoom at which the map is showing individual streets. */
 export const STREET_VIEW_ZOOM = 17;
-/** How far from the target we accept a panorama, in metres. */
-export const SEARCH_RADIUS_M = 120;
+/** How far from the target we accept a photo, in metres. */
+export const SEARCH_RADIUS_M = 150;
 
-// A browser key restricted to this site's referrers, with the Maps Embed API
-// and Street View Static API enabled. Without it we link out to Google Maps.
-const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
+// Mapillary client token (public by design; safe in the browser). Without it
+// we link out to Google Street View instead.
+export const MAPILLARY_TOKEN = process.env.NEXT_PUBLIC_MAPILLARY_TOKEN ?? "";
+export const streetViewEnabled = MAPILLARY_TOKEN.length > 0;
 
-export const streetViewEmbedEnabled = KEY.length > 0;
-
-export type Panorama = {
+export type StreetImage = {
   id: string;
   position: LatLng;
-  /** "2022-03" style capture month, when Google provides it. */
-  date: string | null;
+  capturedAt: number;
   distance: number;
-  heading: number | null;
+  creator: string | null;
+  isPano: boolean;
 };
 
-export type PanoramaLookup =
-  | { status: "found"; pano: Panorama }
+export type StreetImageLookup =
+  | { status: "found"; image: StreetImage }
   | { status: "none" }
   | { status: "error"; message: string };
 
-/** Find the outdoor panorama nearest to `target`. Metadata lookups are free and don't use quota. */
-export async function findPanorama(target: LatLng, signal?: AbortSignal): Promise<PanoramaLookup> {
+type GraphImage = {
+  id: string;
+  geometry: { coordinates: [number, number] };
+  computed_geometry?: { coordinates: [number, number] };
+  captured_at: number;
+  compass_angle?: number;
+  computed_compass_angle?: number;
+  is_pano?: boolean;
+  creator?: { username?: string };
+};
+
+const YEAR_MS = 365 * 24 * 3600 * 1000;
+
+/**
+ * Rank candidates so the chosen photo is close, recent and — for ordinary
+ * (non-360°) photos — actually pointing at the target rather than away from it.
+ */
+function score(img: GraphImage, target: LatLng, now: number) {
+  const [lng, lat] = (img.computed_geometry ?? img.geometry).coordinates;
+  const position = { lat, lng };
+  const distance = distanceMeters(position, target);
+  const compass = img.computed_compass_angle ?? img.compass_angle;
+  let facingPenalty = 0;
+  if (!img.is_pano && compass !== undefined && distance > 8) {
+    const off = Math.abs(((bearing(position, target) - compass + 540) % 360) - 180);
+    facingPenalty = (off / 180) * 90;
+  }
+  const agePenalty = Math.min(10, (now - img.captured_at) / YEAR_MS) * 4;
+  return { position, distance, rank: distance + facingPenalty + agePenalty };
+}
+
+export async function findStreetImage(target: LatLng, signal?: AbortSignal): Promise<StreetImageLookup> {
+  const dLat = SEARCH_RADIUS_M / 111_320;
+  const dLng = SEARCH_RADIUS_M / (111_320 * Math.cos((target.lat * Math.PI) / 180));
+  const bbox = [target.lng - dLng, target.lat - dLat, target.lng + dLng, target.lat + dLat].map((v) => v.toFixed(6)).join(",");
   const params = new URLSearchParams({
-    location: `${target.lat.toFixed(6)},${target.lng.toFixed(6)}`,
-    radius: String(SEARCH_RADIUS_M),
-    source: "outdoor",
-    key: KEY,
+    access_token: MAPILLARY_TOKEN,
+    fields: "id,geometry,computed_geometry,captured_at,compass_angle,computed_compass_angle,is_pano,creator",
+    bbox,
+    limit: "100",
   });
+
   try {
-    const res = await fetch(`https://maps.googleapis.com/maps/api/streetview/metadata?${params}`, { signal });
-    const data = await res.json();
-    if (data.status === "OK") {
-      const position = { lat: data.location.lat, lng: data.location.lng };
-      const distance = distanceMeters(position, target);
-      return {
-        status: "found",
-        pano: {
-          id: data.pano_id,
-          position,
-          date: data.date ?? null,
-          distance,
-          // Turn the camera towards the incident unless we're standing on it.
-          heading: distance > 4 ? bearing(position, target) : null,
-        },
-      };
-    }
-    if (data.status === "ZERO_RESULTS" || data.status === "NOT_FOUND") return { status: "none" };
-    return { status: "error", message: data.error_message ?? data.status };
+    const res = await fetch(`https://graph.mapillary.com/images?${params}`, { signal });
+    if (!res.ok) return { status: "error", message: `Mapillary returned ${res.status}` };
+    const { data } = (await res.json()) as { data: GraphImage[] };
+    const now = Date.now();
+    const best = data
+      .map((img) => ({ img, ...score(img, target, now) }))
+      .filter((c) => c.distance <= SEARCH_RADIUS_M)
+      .sort((a, b) => a.rank - b.rank)[0];
+    if (!best) return { status: "none" };
+    return {
+      status: "found",
+      image: {
+        id: best.img.id,
+        position: best.position,
+        capturedAt: best.img.captured_at,
+        distance: best.distance,
+        creator: best.img.creator?.username ?? null,
+        isPano: Boolean(best.img.is_pano),
+      },
+    };
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err;
-    return { status: "error", message: "Street View couldn't be reached" };
+    return { status: "error", message: "Mapillary couldn't be reached" };
   }
 }
 
-export function embedUrl(pano: Panorama): string {
-  const params = new URLSearchParams({ key: KEY, pano: pano.id, pitch: "0", fov: "80", language: "en" });
-  if (pano.heading !== null) params.set("heading", pano.heading.toFixed(0));
-  return `https://www.google.com/maps/embed/v1/streetview?${params}`;
-}
-
 /** Google Maps' public URL scheme: opens Street View in the Maps app or site, no key needed. */
-export function googleMapsPanoUrl(target: LatLng, pano?: Panorama | null): string {
-  const viewpoint = pano?.position ?? target;
-  const params = new URLSearchParams({ api: "1", map_action: "pano", viewpoint: `${viewpoint.lat},${viewpoint.lng}` });
-  if (pano?.heading != null) params.set("heading", pano.heading.toFixed(0));
+export function googleStreetViewUrl(target: LatLng): string {
+  const params = new URLSearchParams({ api: "1", map_action: "pano", viewpoint: `${target.lat},${target.lng}` });
   return `https://www.google.com/maps/@?${params}`;
 }
 
-export function captureMonth(date: string | null): string | null {
-  if (!date) return null;
-  const [year, month] = date.split("-").map(Number);
-  if (!year) return null;
-  return month
-    ? new Date(year, month - 1).toLocaleDateString("en-NG", { month: "short", year: "numeric" })
-    : String(year);
+export function mapillaryUrl(image: StreetImage): string {
+  return `https://www.mapillary.com/app/?pKey=${image.id}&focus=photo`;
+}
+
+export function captureMonth(ms: number): string {
+  return new Date(ms).toLocaleDateString("en-NG", { month: "short", year: "numeric" });
 }

@@ -111,7 +111,7 @@ export default function SafetyPage() {
         ))}
       </div>
 
-      <section className="mt-16 rounded-box bg-secondary p-8 text-secondary-content">
+      <section className="mt-16 rounded-box bg-neutral p-8 text-neutral-content">
         <h2 className="text-2xl font-extrabold">When you&apos;re safe, report it.</h2>
         <p className="mt-2 opacity-80">Your report warns everyone heading that way and puts responders on the exact spot.</p>
         <Link href="/report" className="btn btn-primary mt-6">

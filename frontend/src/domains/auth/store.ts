@@ -1,8 +1,9 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+
+import { useHydrated } from "@/shared/lib/use-hydrated";
 
 import type { User } from "./types";
 
@@ -27,14 +28,10 @@ export const useAuth = create<AuthState>()(
   ),
 );
 
-const noopSubscribe = () => () => {};
-
 /**
  * The session lives in localStorage, which the server can't see. Gate
  * auth-dependent UI on this so server and first client render agree.
  */
-export function useSessionReady(): boolean {
-  return useSyncExternalStore(noopSubscribe, () => true, () => false);
-}
+export const useSessionReady = useHydrated;
 
 export const isResponder = (user: User | null) => user?.role === "responder" || user?.role === "admin";
