@@ -111,7 +111,7 @@ export default function HomePage() {
             <div className="grid-paper absolute inset-0 rounded-box border border-base-300 bg-base-200">
               <MapSketch />
             </div>
-            <div className="absolute left-[54%] top-[44%]" aria-hidden>
+            <div className="absolute left-[80%] top-[82%]" aria-hidden>
               <span className="pulse-ring absolute -inset-3 rounded-full bg-primary/40" />
               <span className="relative block size-4 rounded-full border-2 border-white bg-primary" />
             </div>

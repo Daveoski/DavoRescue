@@ -151,6 +151,12 @@
 .leaflet-control-attribution {
   font-size: 10px;
 }
+/* OSM only publishes a light style; dim and invert it so night-time use doesn't glare. */
+@media (prefers-color-scheme: dark) {
+  .tiles-streets {
+    filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.7);
+  }
+}
 
 @keyframes pulse-ring {
   0% { transform: scale(0.6); opacity: 0.7; }

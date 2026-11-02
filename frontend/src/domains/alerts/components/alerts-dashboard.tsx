@@ -24,8 +24,7 @@ const pushCopy: Record<PushState, string> = {
   enabled: "Push alerts are on for this device.",
   disabled: "Get a notification the moment a verified incident is reported near you — even with the app closed.",
   denied: "Notifications are blocked for this site. Allow them in your browser settings to get alerts.",
-  unsupported:
-    "This browser can't receive push alerts. Keep this page open (or use the Android app) and we'll alert you here.",
+  unsupported: "This device can't receive background push alerts here. Keep this page open and we'll buzz you when something happens nearby.",
   unavailable: "Push alerts aren't configured on the server yet. This page still updates live while open.",
 };
 
