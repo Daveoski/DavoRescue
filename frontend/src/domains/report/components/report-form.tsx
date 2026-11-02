@@ -10,6 +10,8 @@ import { incidentTypes, quickFacts, type IncidentType } from "@/domains/incident
 import { RoadBadge } from "@/domains/incidents/components/badges";
 import type { ReportReceipt, RoadContext } from "@/domains/incidents/types";
 import { LocationPicker } from "@/domains/map/components/lazy";
+import { InlineStreetView } from "@/domains/map/components/street-view-panel";
+import { STREET_VIEW_ZOOM } from "@/domains/map/street-view";
 import { ApiError } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
 import { coords } from "@/shared/lib/format";
@@ -52,6 +54,7 @@ export function ReportForm() {
 
   const [type, setType] = useState<IncidentType | null>(null);
   const [manualPin, setManualPin] = useState<Pin | null>(null);
+  const [mapZoom, setMapZoom] = useState(0);
   const [roadResult, setRoadResult] = useState<{ key: string; ctx: RoadContext | null } | null>(null);
   const [photos, setPhotos] = useState<EvidencePhoto[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -179,8 +182,14 @@ export function ReportForm() {
             road={road}
             fallbackCenter={ENUGU}
             onMove={movePin}
+            onZoomChange={setMapZoom}
           />
         </div>
+        {pin && mapZoom >= STREET_VIEW_ZOOM && (
+          <div className="mt-3">
+            <InlineStreetView target={pin} />
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1" aria-live="polite">
             {pin ? (
@@ -214,7 +223,10 @@ export function ReportForm() {
             <LocateFixed className="size-4" /> Use my GPS
           </button>
         </div>
-        <p className="mt-2 text-xs text-base-content/60">Not where it’s happening? Drag the pin or tap the map. Works on footpaths and bush tracks too.</p>
+        <p className="mt-2 text-xs text-base-content/60">
+          Not where it’s happening? Drag the pin or tap the map — works on footpaths and bush tracks too. Zoom in to check the spot in
+          Street View.
+        </p>
       </Step>
 
       <Step n={3} title="Show what you see" done={photos.length > 0}>

@@ -78,6 +78,20 @@ All backend settings are environment variables — see [`backend/.env.example`](
 | `RESEND_API_KEY`, `DISPATCH_FROM_EMAIL` | Email dispatch |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web push alerts |
 | `RESPONDER_INVITE_CODE` | Code agency staff enter at sign-up to get the responder role |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Frontend. Embeds Google Street View when a map is zoomed to street level (see below) |
+
+### Street View
+
+Zooming any map to street level (zoom 17+) opens Street View of the incident, the report pin or the map centre, turned to face the spot, with the camera position marked on the map. On the report form it appears below the map so it never hides the pin, and the responder console shows it for every incident.
+
+To embed it, create a Google Cloud browser API key with only the **Maps Embed API** and **Street View Static API** enabled, restricted to the HTTP referrers `davorescue.vercel.app/*` and `localhost:3000/*`, then:
+
+```bash
+vercel env add NEXT_PUBLIC_GOOGLE_MAPS_KEY production --value "<key>" --no-sensitive --yes
+vercel deploy --prod
+```
+
+Google doesn't charge for the Maps Embed API or Street View metadata lookups, but the Cloud project needs a billing account attached. Without a key, zooming in shows a button that opens the same spot in Google Maps' Street View instead.
 
 ### Going live checklist
 

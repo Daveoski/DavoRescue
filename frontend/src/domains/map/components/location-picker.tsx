@@ -14,6 +14,7 @@ type Props = {
   road: RoadContext | null;
   fallbackCenter: [number, number];
   onMove: (lat: number, lng: number) => void;
+  onZoomChange?: (zoom: number) => void;
 };
 
 const pinIcon = L.divIcon({
@@ -25,10 +26,14 @@ const pinIcon = L.divIcon({
     <circle cx="17" cy="17" r="5.5" fill="#fff"/></svg>`,
 });
 
+// One level above Street View, so the reporter sees the surrounding roads first
+// and Street View opens only when they zoom in themselves.
+const PIN_ZOOM = 16;
+
 function Recenter({ position }: { position: Props["position"] }) {
   const map = useMap();
   useEffect(() => {
-    if (position) map.setView([position.lat, position.lng], Math.max(map.getZoom(), 17), { animate: true });
+    if (position) map.setView([position.lat, position.lng], Math.max(map.getZoom(), PIN_ZOOM), { animate: true });
     // Only recenter when the fix itself changes, not on every drag.
   }, [map, position?.lat, position?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
@@ -39,7 +44,7 @@ function TapToPlace({ onMove }: { onMove: Props["onMove"] }) {
   return null;
 }
 
-export default function LocationPicker({ position, accuracy, road, fallbackCenter, onMove }: Props) {
+export default function LocationPicker({ position, accuracy, road, fallbackCenter, onMove, onZoomChange }: Props) {
   const handlers = useMemo(
     () => ({
       dragend: (e: L.DragEndEvent) => {
@@ -55,8 +60,11 @@ export default function LocationPicker({ position, accuracy, road, fallbackCente
   return (
     <BaseMap
       center={position ? [position.lat, position.lng] : fallbackCenter}
-      zoom={position ? 17 : 12}
+      zoom={position ? PIN_ZOOM : 12}
       defaultLayer={road?.navigability === "off_network" ? "satellite" : "streets"}
+      // The report form shows Street View below this small map so it never hides the pin.
+      streetView="off"
+      onViewChange={onZoomChange ? (view) => onZoomChange(view.zoom) : undefined}
     >
       <Recenter position={position} />
       <TapToPlace onMove={onMove} />

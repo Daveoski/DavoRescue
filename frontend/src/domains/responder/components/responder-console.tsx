@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { responderApi } from "@/domains/incidents/api";
 import { RoadBadge, SeverityBadge, StatusBadge } from "@/domains/incidents/components/badges";
 import { IncidentIcon } from "@/domains/incidents/components/incident-icon";
+import { InlineStreetView } from "@/domains/map/components/street-view-panel";
 import type { IncidentStatus, ResponderDetail, ResponderRow } from "@/domains/incidents/types";
 import { ApiError } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
@@ -247,6 +248,9 @@ function IncidentPanel({ incidentRef, onClose, onChanged }: { incidentRef: strin
           <a href={directions} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary mt-3 gap-1.5">
             <Navigation className="size-4" /> Directions
           </a>
+          <div className="mt-4">
+            <InlineStreetView target={{ lat: i.lat, lng: i.lng }} />
+          </div>
         </section>
 
         {i.dispatches.length > 0 && (

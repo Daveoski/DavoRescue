@@ -38,8 +38,14 @@ export default function IncidentMap({ incidents, center, zoom = 11, focus, me, s
     [incidents],
   );
 
+  const selectedIncident = incidents.find((i) => i.ref === selected);
+
   return (
-    <BaseMap center={center} zoom={zoom}>
+    <BaseMap
+      center={center}
+      zoom={zoom}
+      streetViewTarget={selectedIncident ? { lat: selectedIncident.lat, lng: selectedIncident.lng } : null}
+    >
       <FlyTo target={focus} />
       {me && (
         <CircleMarker
