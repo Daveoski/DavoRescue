@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en-NG">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>No connection · DavoRescue</title>
+    <meta name="theme-color" content="#16181d" />
+    <style>
+      :root { color-scheme: light dark; --ink: #16181d; --paper: #fbfaf7; --signal: #d63a1f; --line: #e5e0d5; }
+      @media (prefers-color-scheme: dark) { :root { --ink: #ece8df; --paper: #101216; --line: #252a33; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--paper); color: var(--ink); }
+      main { max-width: 32rem; margin: 0 auto; padding: 2rem 1rem 3rem; }
+      h1 { font-size: 1.9rem; line-height: 1.1; margin: 0.5rem 0 0.75rem; }
+      p { margin: 0 0 1rem; opacity: 0.85; }
+      .eyebrow { font: 600 0.72rem ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.6; }
+      a.call { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.95rem 1rem; margin-bottom: 0.6rem;
+        border: 1px solid var(--line); border-radius: 0.7rem; color: inherit; text-decoration: none; }
+      a.call.primary { background: var(--signal); border-color: var(--signal); color: #fff; }
+      a.call span:last-child { font: 600 1rem ui-monospace, monospace; }
+      button { margin-top: 1rem; padding: 0.8rem 1.2rem; border-radius: 0.6rem; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">DavoRescue · offline</p>
+      <h1>No internet — but you can still call.</h1>
+      <p>Phone calls don't need data. Tap a number below.</p>
+      <a class="call primary" href="tel:112"><span>Emergency (all networks, free)</span><span>112</span></a>
+      <a class="call" href="tel:09134666668"><span>Enugu Command &amp; Control</span><span>0913 466 6668</span></a>
+      <a class="call" href="tel:08032003702"><span>Enugu Police control room</span><span>0803 200 3702</span></a>
+      <a class="call" href="tel:07065409291"><span>Enugu Fire Service</span><span>0706 540 9291</span></a>
+      <a class="call" href="tel:09074996090"><span>Ambulance (NEMSAS Enugu)</span><span>0907 499 6090</span></a>
+      <a class="call" href="tel:122"><span>Road Safety (FRSC)</span><span>122</span></a>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

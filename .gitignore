@@ -1,0 +1,29 @@
+# Dependencies and builds
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Environment and secrets — never commit these
+.env
+.env.*
+!.env.example
+.secrets/
+*.p12
+*.jks
+*.keystore
+
+# Tooling
+.vercel
+.claude/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: davo --default, davo-night --prefersdark;
+  logs: false;
+}
+
+@plugin "daisyui/theme" {
+  name: "davo";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #fbfaf7;
+  --color-base-200: #f3f0e9;
+  --color-base-300: #e5e0d5;
+  --color-base-content: #16181d;
+  --color-primary: #d63a1f;
+  --color-primary-content: #fff8f3;
+  --color-secondary: #16181d;
+  --color-secondary-content: #fbfaf7;
+  --color-accent: #f2a93b;
+  --color-accent-content: #241a06;
+  --color-neutral: #23272f;
+  --color-neutral-content: #f3f0e9;
+  --color-info: #2a66cf;
+  --color-info-content: #f4f8ff;
+  --color-success: #15805a;
+  --color-success-content: #f2fbf6;
+  --color-warning: #e2a012;
+  --color-warning-content: #2a1d02;
+  --color-error: #c4241a;
+  --color-error-content: #fff5f4;
+  --radius-selector: 0.4rem;
+  --radius-field: 0.45rem;
+  --radius-box: 0.7rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "davo-night";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #101216;
+  --color-base-200: #171a20;
+  --color-base-300: #252a33;
+  --color-base-content: #ece8df;
+  --color-primary: #ff5b3d;
+  --color-primary-content: #1a0702;
+  --color-secondary: #ece8df;
+  --color-secondary-content: #101216;
+  --color-accent: #f5b452;
+  --color-accent-content: #241a06;
+  --color-neutral: #1d2128;
+  --color-neutral-content: #ece8df;
+  --color-info: #6b9cff;
+  --color-info-content: #08142b;
+  --color-success: #3fbf8a;
+  --color-success-content: #04190f;
+  --color-warning: #f2b632;
+  --color-warning-content: #2a1d02;
+  --color-error: #ff6b5e;
+  --color-error-content: #2b0603;
+  --radius-selector: 0.4rem;
+  --radius-field: 0.45rem;
+  --radius-box: 0.7rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@theme inline {
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo), var(--font-public-sans), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-base-100 text-base-content font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    font-stretch: 82%;
+    letter-spacing: -0.015em;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 55%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .wrap {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  /* Road-sign hazard band, used sparingly for genuinely urgent UI. */
+  .hazard {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--color-accent) 0 10px,
+      var(--color-secondary) 10px 20px
+    );
+  }
+  .grid-paper {
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--color-base-content) 6%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklab, var(--color-base-content) 6%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .eyebrow {
+    @apply font-mono text-[0.72rem] font-medium uppercase tracking-[0.14em] text-base-content/60;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .ticket-edge {
+    mask:
+      radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  }
+}
+
+/* Leaflet tweaks so the map inherits the app's type and theme. */
+.leaflet-container {
+  font-family: var(--font-public-sans), system-ui, sans-serif;
+  background: var(--color-base-200);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+  border-radius: 0.6rem;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+}
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulse-ring 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring { animation: none; }
+}
