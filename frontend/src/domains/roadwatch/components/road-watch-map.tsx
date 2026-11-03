@@ -6,7 +6,7 @@ import { Polyline, Tooltip, useMap } from "react-leaflet";
 
 import BaseMap from "@/domains/map/components/base-map";
 
-import { levelMeta, UNREVIEWED_COLOR } from "../api";
+import { displayLevel } from "../api";
 import type { Corridor, Stretch } from "../types";
 
 type Props = {
@@ -14,8 +14,6 @@ type Props = {
   selected: Stretch | null;
   onSelect: (corridor: Corridor, stretch: Stretch) => void;
 };
-
-const colorOf = (s: Stretch) => (s.assessment || s.incidents_90d ? levelMeta[s.level].color : UNREVIEWED_COLOR);
 
 function FitTo({ selected, all }: { selected: Stretch | null; all: [number, number][] }) {
   const map = useMap();
@@ -39,15 +37,16 @@ export default function RoadWatchMap({ corridors, selected, onSelect }: Props) {
       {corridors.flatMap((c) =>
         c.segments.map((s) => {
           const active = selected?.id === s.id;
+          const shown = displayLevel(s);
           return (
             <Polyline
               key={`${s.id}-${active}`}
               positions={s.path}
-              pathOptions={{ color: colorOf(s), weight: active ? 9 : 6, opacity: active ? 1 : 0.9, lineCap: "round" }}
+              pathOptions={{ color: shown.color, weight: active ? 9 : 6, opacity: active ? 1 : 0.9, lineCap: "round" }}
               eventHandlers={{ click: () => onSelect(c, s) }}
             >
               <Tooltip sticky>
-                {c.name} · {s.label} · {levelMeta[s.level].short}
+                {c.name} · {s.label} · {shown.short}
               </Tooltip>
             </Polyline>
           );

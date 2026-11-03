@@ -4,7 +4,7 @@ import Link from "next/link";
 import { cn } from "@/shared/lib/cn";
 import { timeAgo, titleCase } from "@/shared/lib/format";
 
-import { hazardLabel, levelMeta, settlementLabel, surfaceLabel } from "../api";
+import { displayLevel, hazardLabel, settlementLabel, surfaceLabel } from "../api";
 import type { Corridor, Stretch } from "../types";
 
 function imageryWhen(date: string | null, res: number | null): string {
@@ -15,7 +15,7 @@ function imageryWhen(date: string | null, res: number | null): string {
 
 export function StretchDetail({ corridor, stretch, onClose }: { corridor: Corridor; stretch: Stretch; onClose: () => void }) {
   const a = stretch.assessment;
-  const meta = levelMeta[stretch.level];
+  const meta = displayLevel(stretch);
 
   return (
     <article className="rounded-box border border-base-300 bg-base-100">
@@ -38,7 +38,7 @@ export function StretchDetail({ corridor, stretch, onClose }: { corridor: Corrid
       <div className="space-y-6 p-5">
         <div className="flex items-center gap-3">
           <span className={cn("badge badge-lg", meta.badge)}>{meta.label}</span>
-          <span className="font-mono text-sm tabular text-base-content/60">risk {stretch.risk}/100</span>
+          {meta.key !== "pending" && <span className="font-mono text-sm tabular text-base-content/60">risk {stretch.risk}/100</span>}
         </div>
 
         <section>

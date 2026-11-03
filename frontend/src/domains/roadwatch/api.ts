@@ -1,6 +1,6 @@
 import { api } from "@/shared/lib/api-client";
 
-import type { RoadWatch } from "./types";
+import type { RoadWatch, Stretch } from "./types";
 
 export const roadWatchApi = {
   get: () => api<RoadWatch>("/api/roadwatch", { auth: false }),
@@ -19,6 +19,20 @@ export const levelMeta = {
 } as const;
 
 export const UNREVIEWED_COLOR = "#8a8f98";
+
+export type DisplayLevel = { key: "safe" | "caution" | "avoid" | "pending"; label: string; short: string; color: string; badge: string };
+
+/**
+ * A stretch with no reports and no AI review hasn't been shown to be safe — we just
+ * have no evidence either way — so it stays grey instead of green.
+ */
+export function displayLevel(s: Stretch): DisplayLevel {
+  const evidence = s.incidents_90d > 0 || s.assessment?.method === "ai";
+  if (!evidence && s.level === "safe") {
+    return { key: "pending", label: "No reports · AI review pending", short: "Pending", color: UNREVIEWED_COLOR, badge: "badge-ghost" };
+  }
+  return { key: s.level, ...levelMeta[s.level] };
+}
 
 export const hazardLabel: Record<string, string> = {
   erosion: "Erosion",

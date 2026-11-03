@@ -10,7 +10,7 @@ import { cn } from "@/shared/lib/cn";
 import { timeAgo } from "@/shared/lib/format";
 import { usePoll } from "@/shared/lib/use-poll";
 
-import { levelMeta, roadWatchApi, UNREVIEWED_COLOR } from "../api";
+import { displayLevel, levelMeta, roadWatchApi, UNREVIEWED_COLOR, type DisplayLevel } from "../api";
 import type { Corridor, RoadWatch, Stretch } from "../types";
 import { StretchDetail } from "./stretch-detail";
 
@@ -22,18 +22,21 @@ const RoadWatchMap = dynamic(() => import("./road-watch-map"), {
 function Strip({ corridor, selected, onSelect }: { corridor: Corridor; selected: Stretch | null; onSelect: (s: Stretch) => void }) {
   return (
     <div className="flex gap-0.5" role="list" aria-label={`${corridor.name} stretches`}>
-      {corridor.segments.map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          role="listitem"
-          onClick={() => onSelect(s)}
-          title={`${s.label} · ${levelMeta[s.level].short}`}
-          aria-label={`Stretch ${s.seq}, ${s.label}: ${levelMeta[s.level].label}`}
-          className={cn("h-3 flex-1 rounded-[2px] transition-transform hover:scale-y-150", selected?.id === s.id && "ring-2 ring-base-content")}
-          style={{ background: s.assessment || s.incidents_90d ? levelMeta[s.level].color : UNREVIEWED_COLOR }}
-        />
-      ))}
+      {corridor.segments.map((s) => {
+        const shown = displayLevel(s);
+        return (
+          <button
+            key={s.id}
+            type="button"
+            role="listitem"
+            onClick={() => onSelect(s)}
+            title={`${s.label} · ${shown.short}`}
+            aria-label={`Stretch ${s.seq}, ${s.label}: ${shown.label}`}
+            className={cn("h-3 flex-1 rounded-[2px] transition-transform hover:scale-y-150", selected?.id === s.id && "ring-2 ring-base-content")}
+            style={{ background: shown.color }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -79,10 +82,27 @@ export function RoadWatchBoard() {
 
   const counts = data
     ? data.corridors.flatMap((c) => c.segments).reduce(
-        (acc, s) => ({ ...acc, [s.level]: acc[s.level] + 1 }),
-        { safe: 0, caution: 0, avoid: 0 } as Record<"safe" | "caution" | "avoid", number>,
+        (acc, s) => {
+          const key = displayLevel(s).key;
+          return { ...acc, [key]: acc[key] + 1 };
+        },
+        { safe: 0, caution: 0, avoid: 0, pending: 0 } as Record<DisplayLevel["key"], number>,
       )
     : null;
+  const legend: { key: DisplayLevel["key"]; label: string; color: string }[] = [
+    { key: "avoid", label: "avoid", color: levelMeta.avoid.color },
+    { key: "caution", label: "caution", color: levelMeta.caution.color },
+    { key: "safe", label: "safe", color: levelMeta.safe.color },
+    { key: "pending", label: "awaiting evidence", color: UNREVIEWED_COLOR },
+  ];
+
+  function corridorBadge(c: Corridor) {
+    const shown = c.segments.map(displayLevel);
+    if (shown.some((d) => d.key === "avoid")) return { text: "Has avoid stretches", badge: levelMeta.avoid.badge };
+    if (shown.some((d) => d.key === "caution")) return { text: "Has caution stretches", badge: levelMeta.caution.badge };
+    if (shown.every((d) => d.key === "pending")) return { text: "Awaiting evidence", badge: "badge-ghost" };
+    return { text: "No hotspots", badge: levelMeta.safe.badge };
+  }
 
   return (
     <div className="grid lg:h-[calc(100dvh-6.5rem)] lg:grid-cols-[440px_minmax(0,1fr)]">
@@ -102,10 +122,10 @@ export function RoadWatchBoard() {
           </div>
           {counts && (
             <div className="flex flex-wrap gap-2 text-xs">
-              {(["avoid", "caution", "safe"] as const).map((level) => (
-                <span key={level} className="inline-flex items-center gap-1.5 rounded-full border border-base-300 px-2.5 py-1">
-                  <span className="size-2.5 rounded-full" style={{ background: levelMeta[level].color }} />
-                  {counts[level]} {levelMeta[level].short.toLowerCase()}
+              {legend.map((l) => (
+                <span key={l.key} className="inline-flex items-center gap-1.5 rounded-full border border-base-300 px-2.5 py-1">
+                  <span className="size-2.5 rounded-full" style={{ background: l.color }} />
+                  {counts[l.key]} {l.label}
                 </span>
               ))}
             </div>
@@ -143,9 +163,7 @@ export function RoadWatchBoard() {
                         {c.length_km} km in Enugu · {c.segments.length} stretches
                       </p>
                     </div>
-                    <span className={cn("badge badge-sm shrink-0", levelMeta[c.level].badge)}>
-                      {c.level === "safe" ? "No hotspots" : `Worst: ${levelMeta[c.level].short}`}
-                    </span>
+                    <span className={cn("badge badge-sm shrink-0", corridorBadge(c).badge)}>{corridorBadge(c).text}</span>
                   </div>
                   <Strip corridor={c} selected={stretch} onSelect={(s) => select(c, s)} />
                 </li>
