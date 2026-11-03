@@ -10,8 +10,9 @@ import { incidentTypes, quickFacts, type IncidentType } from "@/domains/incident
 import { RoadBadge } from "@/domains/incidents/components/badges";
 import type { ReportReceipt, RoadContext } from "@/domains/incidents/types";
 import { LocationPicker } from "@/domains/map/components/lazy";
-import { InlineStreetView } from "@/domains/map/components/street-view-panel";
+import { StreetViewPanel } from "@/domains/map/components/street-view-panel";
 import { STREET_VIEW_ZOOM, streetViewEnabled, type StreetImage } from "@/domains/map/street-view";
+import { useStreetView } from "@/domains/map/use-street-image";
 import { ApiError } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
 import { coords } from "@/shared/lib/format";
@@ -77,6 +78,9 @@ export function ReportForm() {
   const anonymous = anonymousChoice ?? !signedIn;
 
   const pinKey = pin ? `${pin.lat.toFixed(6)},${pin.lng.toFixed(6)}` : null;
+  // Street View sits below the map (not over it) so it never hides the pin.
+  const showStreetView = Boolean(pin) && mapZoom >= STREET_VIEW_ZOOM;
+  const streetView = useStreetView(showStreetView ? pin : null);
   const road = roadResult?.ctx ?? null;
   const roadLoading = pinKey !== null && roadResult?.key !== pinKey;
 
@@ -185,12 +189,22 @@ export function ReportForm() {
             fallbackCenter={ENUGU}
             onMove={movePin}
             onZoomChange={setMapZoom}
-            onStreetImagePick={(image) => pinKey && setStreetPick({ image, forPin: pinKey })}
+            onStreetImagePick={(image) => {
+              if (!pinKey) return;
+              setStreetPick({ image, forPin: pinKey });
+              streetView.setSource("mapillary");
+            }}
           />
         </div>
-        {pin && mapZoom >= STREET_VIEW_ZOOM && (
+        {showStreetView && pin && (
           <div className="mt-3">
-            <InlineStreetView target={pin} subject="pin" picked={streetPick?.forPin === pinKey ? streetPick.image : null} />
+            <StreetViewPanel
+              variant="inline"
+              target={pin}
+              subject="pin"
+              view={streetView}
+              picked={streetPick?.forPin === pinKey ? streetPick.image : null}
+            />
             {streetViewEnabled && (
               <p className="mt-1.5 text-xs text-base-content/60">Green dots on the map are other street photos — tap one to look from there.</p>
             )}

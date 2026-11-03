@@ -114,9 +114,79 @@ export async function fetchCoverage(bounds: Bounds, signal?: AbortSignal): Promi
   return (await searchImages(bounds, 500, signal)).map(toStreetImage);
 }
 
+/* ------------------------------------------------------------------ */
+/* Google Street View                                                  */
+/* ------------------------------------------------------------------ */
+
+// Browser key restricted to this site, with the Maps Embed API and Street View
+// Static API enabled. Both uses are free; without a key the Google tab links out.
+const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "";
+export const googleEmbedEnabled = GOOGLE_KEY.length > 0;
+export const GOOGLE_RADIUS_M = 120;
+
+export type GooglePano = {
+  id: string;
+  position: LatLng;
+  /** "2023-04" style capture month, when Google provides it. */
+  date: string | null;
+  /** Camera heading that faces the target. */
+  heading: number | null;
+};
+
+export type GooglePanoLookup =
+  | { status: "found"; pano: GooglePano }
+  | { status: "none" }
+  | { status: "error"; message: string };
+
+/** Nearest outdoor Google panorama. Metadata lookups are free and use no quota. */
+export async function findGooglePano(target: LatLng, signal?: AbortSignal): Promise<GooglePanoLookup> {
+  const params = new URLSearchParams({
+    location: `${target.lat.toFixed(6)},${target.lng.toFixed(6)}`,
+    radius: String(GOOGLE_RADIUS_M),
+    source: "outdoor",
+    key: GOOGLE_KEY,
+  });
+  try {
+    const res = await fetch(`https://maps.googleapis.com/maps/api/streetview/metadata?${params}`, { signal });
+    const data = await res.json();
+    if (data.status === "OK") {
+      const position = { lat: data.location.lat, lng: data.location.lng };
+      return {
+        status: "found",
+        pano: {
+          id: data.pano_id,
+          position,
+          date: data.date ?? null,
+          heading: distanceMeters(position, target) > 4 ? bearing(position, target) : null,
+        },
+      };
+    }
+    if (data.status === "ZERO_RESULTS" || data.status === "NOT_FOUND") return { status: "none" };
+    return { status: "error", message: data.error_message ?? data.status };
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw err;
+    return { status: "error", message: "Google Street View couldn't be reached" };
+  }
+}
+
+export function googleEmbedUrl(pano: GooglePano): string {
+  const params = new URLSearchParams({ key: GOOGLE_KEY, pano: pano.id, pitch: "0", fov: "80", language: "en" });
+  if (pano.heading !== null) params.set("heading", pano.heading.toFixed(0));
+  return `https://www.google.com/maps/embed/v1/streetview?${params}`;
+}
+
+export function googleMonth(date: string | null): string | null {
+  if (!date) return null;
+  const [year, month] = date.split("-").map(Number);
+  if (!year) return null;
+  return month ? new Date(year, month - 1).toLocaleDateString("en-NG", { month: "short", year: "numeric" }) : String(year);
+}
+
 /** Google Maps' public URL scheme: opens Street View in the Maps app or site, no key needed. */
-export function googleStreetViewUrl(target: LatLng): string {
-  const params = new URLSearchParams({ api: "1", map_action: "pano", viewpoint: `${target.lat},${target.lng}` });
+export function googleStreetViewUrl(target: LatLng, pano?: GooglePano | null): string {
+  const viewpoint = pano?.position ?? target;
+  const params = new URLSearchParams({ api: "1", map_action: "pano", viewpoint: `${viewpoint.lat},${viewpoint.lng}` });
+  if (pano?.heading != null) params.set("heading", pano.heading.toFixed(0));
   return `https://www.google.com/maps/@?${params}`;
 }
 

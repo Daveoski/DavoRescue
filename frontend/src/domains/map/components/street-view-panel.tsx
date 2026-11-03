@@ -9,34 +9,33 @@ import { distanceMeters, type LatLng } from "@/shared/lib/geo";
 
 import {
   captureMonth,
+  GOOGLE_RADIUS_M,
+  googleEmbedEnabled,
+  googleEmbedUrl,
+  googleMonth,
   googleStreetViewUrl,
   mapillaryUrl,
   NEAR_M,
   SEARCH_STEPS_M,
   streetViewEnabled,
   type StreetImage,
-  type StreetImageLookup,
 } from "../street-view";
-import { useStreetImage } from "../use-street-image";
+import { useStreetView, type StreetSource } from "../use-street-image";
 
-// WebGL viewer: browser-only, and its ~1 MB bundle loads only when Street View opens.
+// WebGL viewer: browser-only, and its ~1 MB bundle loads only when it's shown.
 const MapillaryViewer = dynamic(() => import("./mapillary-viewer"), {
   ssr: false,
-  loading: () => (
-    <div className="absolute inset-0 grid place-items-center">
-      <span className="loading loading-dots loading-md opacity-60" />
-    </div>
-  ),
+  loading: () => <Spinner label="Loading street photo" />,
 });
 
 export type StreetViewSubject = "pin" | "incident" | "map centre";
+export type StreetViewState = ReturnType<typeof useStreetView>;
 
 type PanelProps = {
   target: LatLng;
   subject: StreetViewSubject;
-  lookup: StreetImageLookup | null;
-  loading: boolean;
-  /** A photo the user tapped on the map; shown instead of the automatic pick. */
+  view: StreetViewState;
+  /** A Mapillary photo the user tapped on the map; shown instead of the automatic pick. */
   picked?: StreetImage | null;
   variant: "overlay" | "inline";
   expanded?: boolean;
@@ -44,6 +43,14 @@ type PanelProps = {
   onClose?: () => void;
   onWalk?: (image: { id: string; position: LatLng }) => void;
 };
+
+function Spinner({ label }: { label: string }) {
+  return (
+    <div className="absolute inset-0 grid place-items-center">
+      <span className="loading loading-dots loading-md opacity-60" aria-label={label} />
+    </div>
+  );
+}
 
 function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -53,30 +60,19 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
   );
 }
 
-function GoogleFallback({ target, text }: { target: LatLng; text: string }) {
-  return (
-    <p className="max-w-xs opacity-85">
-      {text}{" "}
-      <a href={googleStreetViewUrl(target)} target="_blank" rel="noopener noreferrer" className="link font-medium">
-        Try Google Street View
-      </a>
-      .
-    </p>
-  );
+function Message({ children }: { children: React.ReactNode }) {
+  return <div className="absolute inset-0 grid place-items-center p-4 text-center text-sm">{children}</div>;
 }
 
-function describe(image: StreetImage, target: LatLng, subject: StreetViewSubject, picked: boolean): string {
-  const away = distanceMeters(image.position, target);
-  const where =
-    picked || away <= NEAR_M ? `${distance(away)} from ${subject}` : `Nearest street photo · ${distance(away)} from ${subject}`;
-  return [where, captureMonth(image.capturedAt), image.creator && `© ${image.creator}`].filter(Boolean).join(" · ");
-}
+const SOURCES: { id: StreetSource; label: string }[] = [
+  { id: "mapillary", label: "Mapillary" },
+  { id: "google", label: "Google" },
+];
 
 export function StreetViewPanel({
   target,
   subject,
-  lookup,
-  loading,
+  view,
   picked,
   variant,
   expanded,
@@ -84,70 +80,144 @@ export function StreetViewPanel({
   onClose,
   onWalk,
 }: PanelProps) {
-  // Without a Mapillary token, offer Google's Street View instead of an empty frame.
-  if (!streetViewEnabled) {
+  const { mapillary, google } = view;
+  // Without Mapillary, Google is the only source.
+  const source: StreetSource | null = streetViewEnabled ? (picked ? "mapillary" : view.source) : "google";
+
+  const photo = picked ?? (mapillary.lookup?.status === "found" ? mapillary.lookup.image : null);
+  const pano = google.lookup?.status === "found" ? google.lookup.pano : null;
+
+  let meta = "";
+  if (source === "mapillary" && photo) {
+    const away = distanceMeters(photo.position, target);
+    const where = picked || away <= NEAR_M ? `${distance(away)} from ${subject}` : `Nearest photo · ${distance(away)} from ${subject}`;
+    meta = [where, captureMonth(photo.capturedAt), photo.creator && `© ${photo.creator}`].filter(Boolean).join(" · ");
+  } else if (source === "google" && pano) {
+    meta = [`${distance(distanceMeters(pano.position, target))} from ${subject}`, googleMonth(pano.date)].filter(Boolean).join(" · ");
+  }
+  const external =
+    source === "mapillary" && photo ? mapillaryUrl(photo) : googleStreetViewUrl(target, source === "google" ? pano : null);
+
+  const switchTo = (next: StreetSource, label: string) => (
+    <button type="button" className="btn btn-sm mt-3" onClick={() => view.setSource(next)}>
+      {label}
+    </button>
+  );
+
+  function body() {
+    if (!source) return <Spinner label="Finding street imagery" />;
+
+    if (source === "mapillary") {
+      if (photo) return <MapillaryViewer imageId={photo.id} onMove={onWalk} />;
+      if (!mapillary.lookup || mapillary.loading) return <Spinner label="Finding street photos" />;
+      return (
+        <Message>
+          <div className="max-w-xs opacity-90">
+            <p>
+              {mapillary.lookup.status === "none"
+                ? `No Mapillary photos within ${distance(SEARCH_STEPS_M[SEARCH_STEPS_M.length - 1])} of this spot yet.`
+                : "Mapillary photos couldn’t load right now."}
+            </p>
+            {switchTo("google", "Try Google Street View")}
+          </div>
+        </Message>
+      );
+    }
+
+    // Google
+    if (!googleEmbedEnabled) {
+      return (
+        <Message>
+          <div className="max-w-xs">
+            <p className="opacity-90">Google Street View opens in Google Maps at this exact spot.</p>
+            <a href={googleStreetViewUrl(target)} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm mt-3 gap-1.5">
+              Open Google Street View <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+          </div>
+        </Message>
+      );
+    }
+    if (pano) {
+      return (
+        <iframe
+          key={pano.id}
+          src={googleEmbedUrl(pano)}
+          title="Google Street View of this location"
+          className="absolute inset-0 h-full w-full border-0"
+          loading="lazy"
+          allow="fullscreen; accelerometer; gyroscope"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      );
+    }
+    if (!google.lookup || google.loading) return <Spinner label="Finding Google Street View" />;
     return (
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-box border border-base-300 bg-base-100 p-3 text-base-content shadow-lg",
-          variant === "overlay" && "absolute bottom-7 left-2 right-2 z-[1001] @xl:right-auto @xl:max-w-sm",
-        )}
-      >
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-accent-content">
-          <PersonStanding className="size-5" aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1 text-sm leading-tight">
-          <span className="block font-semibold">Street View</span>
-          <span className="text-base-content/65">See this spot at street level</span>
-        </span>
-        <a href={googleStreetViewUrl(target)} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm gap-1">
-          Open <ExternalLink className="size-3.5" aria-hidden />
-        </a>
-        {onClose && (
-          <IconButton label="Hide Street View" onClick={onClose}>
-            <X className="size-4" />
-          </IconButton>
-        )}
-      </div>
+      <Message>
+        <div className="max-w-xs opacity-90">
+          <p>
+            {google.lookup.status === "none"
+              ? `No Google Street View within ${GOOGLE_RADIUS_M} m of this spot.`
+              : "Google Street View couldn’t load right now."}
+          </p>
+          {streetViewEnabled && photo && switchTo("mapillary", "See the Mapillary photo")}
+        </div>
+      </Message>
     );
   }
-
-  const image = picked ?? (lookup?.status === "found" ? lookup.image : null);
-  const meta = image ? describe(image, target, subject, Boolean(picked)) : "";
-  const furthest = SEARCH_STEPS_M[SEARCH_STEPS_M.length - 1];
 
   return (
     <section
       aria-label="Street View"
       className={cn(
         "flex flex-col overflow-hidden rounded-box bg-neutral text-neutral-content shadow-[0_12px_40px_-12px_rgb(0_0_0/0.55)]",
-        variant === "inline" && "h-64",
+        variant === "inline" && "h-72",
         variant === "overlay" &&
           (expanded
             ? "absolute inset-2 z-[1001]"
             : // Kept clear of the zoom buttons above and, on wide maps, of the centre where pins sit.
-              "absolute inset-x-2 bottom-7 z-[1001] h-[52%] @xl:inset-x-auto @xl:left-3 @xl:h-auto @xl:max-h-[62%] @xl:aspect-[16/10] @xl:w-[min(44%,520px)]"),
+              "absolute inset-x-2 bottom-7 z-[1001] h-[56%] @xl:inset-x-auto @xl:left-3 @xl:h-auto @xl:max-h-[66%] @xl:aspect-[16/11] @xl:w-[min(46%,540px)]"),
       )}
     >
-      <header className="flex items-center gap-2 px-3 py-1.5 text-xs">
+      <header className="flex items-center gap-2 px-2.5 pt-1.5 text-xs">
         <PersonStanding className="size-4 shrink-0 text-accent" aria-hidden />
-        <span className="font-semibold">Street View</span>
-        <span className="min-w-0 flex-1 truncate opacity-70" title={meta}>
-          {meta}
-        </span>
-        {loading && !picked && <span className="loading loading-spinner loading-xs opacity-70" aria-label="Loading" />}
+        {streetViewEnabled ? (
+          <div role="tablist" aria-label="Street imagery source" className="flex rounded-field bg-black/25 p-0.5">
+            {SOURCES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={source === s.id}
+                onClick={() => view.setSource(s.id)}
+                className={cn(
+                  "rounded-[calc(var(--radius-field)-2px)] px-2 py-0.5 font-medium transition-colors",
+                  source === s.id ? "bg-neutral-content text-neutral" : "opacity-75 hover:opacity-100",
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="font-semibold">Google Street View</span>
+        )}
+        <span className="flex-1" />
+        {((source === "mapillary" && mapillary.loading && !picked) || (source === "google" && google.loading)) && (
+          <span className="loading loading-spinner loading-xs opacity-70" aria-label="Loading" />
+        )}
         {onToggleExpand && (
           <IconButton label={expanded ? "Shrink Street View" : "Expand Street View"} onClick={onToggleExpand}>
             {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
           </IconButton>
         )}
         <a
-          href={image ? mapillaryUrl(image) : googleStreetViewUrl(target)}
+          href={external}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-ghost btn-xs btn-square text-current"
-          aria-label={image ? "Open in Mapillary" : "Open Google Street View"}
-          title={image ? "Open in Mapillary" : "Open Google Street View"}
+          aria-label={source === "mapillary" && photo ? "Open in Mapillary" : "Open in Google Maps"}
+          title={source === "mapillary" && photo ? "Open in Mapillary" : "Open in Google Maps"}
         >
           <ExternalLink className="size-3.5" />
         </a>
@@ -157,36 +227,18 @@ export function StreetViewPanel({
           </IconButton>
         )}
       </header>
+      {/* Kept outside the viewer so it never covers Google's or Mapillary's own attribution. */}
+      <p className="h-5 truncate px-3 text-[11px] leading-5 opacity-70" title={meta}>
+        {meta}
+      </p>
 
-      <div className="relative min-h-0 flex-1 bg-black">
-        {image ? (
-          <MapillaryViewer imageId={image.id} onMove={onWalk} />
-        ) : (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center text-sm">
-            {!lookup || loading ? (
-              <span className="loading loading-dots loading-md opacity-60" aria-label="Finding street photos" />
-            ) : lookup.status === "none" ? (
-              <GoogleFallback target={target} text={`No Mapillary street photos within ${distance(furthest)} of this spot yet.`} />
-            ) : (
-              <GoogleFallback target={target} text="Street photos couldn’t load right now." />
-            )}
-          </div>
-        )}
-      </div>
+      <div className="relative min-h-0 flex-1 bg-black">{body()}</div>
     </section>
   );
 }
 
 /** Self-contained Street View for a fixed point, e.g. an incident in the responder console. */
-export function InlineStreetView({
-  target,
-  subject,
-  picked,
-}: {
-  target: LatLng;
-  subject: StreetViewSubject;
-  picked?: StreetImage | null;
-}) {
-  const { lookup, loading } = useStreetImage(target);
-  return <StreetViewPanel target={target} subject={subject} lookup={lookup} loading={loading} picked={picked} variant="inline" />;
+export function InlineStreetView({ target, subject }: { target: LatLng; subject: StreetViewSubject }) {
+  const view = useStreetView(target);
+  return <StreetViewPanel target={target} subject={subject} view={view} variant="inline" />;
 }

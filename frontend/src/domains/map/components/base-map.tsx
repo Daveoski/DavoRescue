@@ -11,7 +11,7 @@ import { cn } from "@/shared/lib/cn";
 import { distanceMeters, type LatLng } from "@/shared/lib/geo";
 
 import { COVERAGE_ZOOM, STREET_VIEW_ZOOM, streetViewEnabled, type Bounds, type StreetImage } from "../street-view";
-import { useStreetCoverage, useStreetImage } from "../use-street-image";
+import { useStreetCoverage, useStreetView } from "../use-street-image";
 import { StreetViewPanel } from "./street-view-panel";
 
 // Keyless providers. OpenStreetMap's own tiles show estate roads, footpaths and
@@ -132,17 +132,27 @@ export default function BaseMap({
 
   const overlay = streetView === "overlay";
   const open = overlay && streetLevel && !dismissed;
-  const { lookup, loading } = useStreetImage(open ? target : null);
+  const sv = useStreetView(open ? target : null);
   // A tapped photo stays on screen until the thing being looked at moves.
   const picked = pick?.forTarget === keyOf(target) ? pick.image : null;
-  const shown = open ? (picked ?? (lookup?.status === "found" ? lookup.image : null)) : null;
-  const cameraPosition = shown ? (walk?.startId === shown.id ? walk.position : shown.position) : null;
+  const mapillaryShown = open ? (picked ?? (sv.mapillary.lookup?.status === "found" ? sv.mapillary.lookup.image : null)) : null;
+  const googleShown = open && sv.google.lookup?.status === "found" ? sv.google.lookup.pano : null;
+  const activeSource = picked ? "mapillary" : sv.source;
+  const cameraPosition =
+    activeSource === "google"
+      ? (googleShown?.position ?? null)
+      : mapillaryShown
+        ? walk?.startId === mapillaryShown.id
+          ? walk.position
+          : mapillaryShown.position
+        : null;
 
   const dots = useStreetCoverage(streetViewEnabled && currentZoom >= COVERAGE_ZOOM && view ? view.bounds : null);
 
   function pickImage(image: StreetImage) {
     if (overlay) {
       setPick({ image, forTarget: keyOf(target) });
+      sv.setSource("mapillary");
       setDismissed(false);
     }
     onStreetImagePick?.(image);
@@ -171,7 +181,7 @@ export default function BaseMap({
 
         {/* Green dots: every spot with a street photo. At street level, tap one to look from there. */}
         {dots
-          .filter((d) => d.id !== shown?.id)
+          .filter((d) => d.id !== mapillaryShown?.id)
           .map((d) => (
             <CircleMarker
               // Interactivity is fixed when a Leaflet layer is created, so remount when it changes.
@@ -195,13 +205,12 @@ export default function BaseMap({
           variant="overlay"
           target={target}
           subject={followsTarget ? "incident" : "map centre"}
-          lookup={lookup}
-          loading={loading}
+          view={sv}
           picked={picked}
           expanded={expanded}
           onToggleExpand={() => setExpanded((e) => !e)}
           onClose={() => setDismissed(true)}
-          onWalk={(step) => shown && setWalk({ startId: shown.id, position: step.position })}
+          onWalk={(step) => mapillaryShown && setWalk({ startId: mapillaryShown.id, position: step.position })}
         />
       )}
       {overlay && streetLevel && dismissed && (

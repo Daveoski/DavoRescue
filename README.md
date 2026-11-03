@@ -78,20 +78,22 @@ All backend settings are environment variables — see [`backend/.env.example`](
 | `RESEND_API_KEY`, `DISPATCH_FROM_EMAIL` | Email dispatch |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Web push alerts |
 | `RESPONDER_INVITE_CODE` | Code agency staff enter at sign-up to get the responder role |
-| `NEXT_PUBLIC_MAPILLARY_TOKEN` | Frontend. Mapillary client token for street-level photos when a map is zoomed in (see below) |
+| `NEXT_PUBLIC_MAPILLARY_TOKEN` | Frontend. Mapillary client token for street-level photos (see below) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY` | Frontend. Embeds Google Street View next to Mapillary (see below) |
 
-### Street View (Mapillary)
+### Street View (Mapillary + Google)
 
-Zooming any map to street level (zoom 17+) opens an interactive street-level viewer for the incident, the report pin or the map centre. From the Mapillary photos within 150 m, it picks the one that is closest, most recent and — for ordinary photos — actually facing the spot. The camera position is marked on the map and follows you as you step between photos. On the report form the viewer appears below the map so it never hides the pin, and the responder console shows it for every incident. Where Mapillary has no photos yet, the panel offers Google Street View instead.
+Zooming any map to street level (zoom 17+) opens a street-level viewer for the incident, the report pin or the map centre, with a **Mapillary | Google** switch. It opens on whichever source shows the spot best — a Mapillary photo within 150 m, otherwise a Google panorama, otherwise the nearest Mapillary photo up to 1.5 km away — and remembers the source you pick. The camera position is marked on the map; from zoom 16, green dots show every Mapillary photo in view, and at street level tapping one opens it. On the report form the viewer sits below the map so it never hides the pin, and the responder console shows it for every incident.
 
-The token is the Mapillary app's **client token** (`MLY|…`), which is meant to be public. Never put the client secret in the frontend.
+**Mapillary** uses the app's **client token** (`MLY|…`), which is meant to be public — never put the client secret in the frontend. Coverage grows as people upload with the Mapillary app (responders on patrol can help).
+
+**Google** needs a browser key: in Google Cloud, enable only the **Maps Embed API** and **Street View Static API**, and restrict the key to the HTTP referrers `davorescue.vercel.app/*` and `localhost:3000/*`. Both APIs are free, but the project needs a billing account. Without a key the Google tab opens Street View in Google Maps instead of embedding it.
 
 ```bash
 vercel env add NEXT_PUBLIC_MAPILLARY_TOKEN production --value "MLY|…" --no-sensitive --yes
+vercel env add NEXT_PUBLIC_GOOGLE_MAPS_KEY production --value "AIza…" --no-sensitive --yes
 vercel deploy --prod
 ```
-
-Coverage grows as people upload: anyone (including responders on patrol) can add photos with the Mapillary app.
 
 ## Themes
 
