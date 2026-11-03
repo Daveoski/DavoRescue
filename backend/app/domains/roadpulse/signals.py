@@ -138,7 +138,11 @@ async def record_signal(conn: asyncpg.Connection, data: SignalIn, user: UserOut 
     if new_status == "unverified":
         message = "Thanks. Responders can see this now. It becomes a public warning when another driver confirms it."
     elif became_public:
-        message = f"Confirmed by {len(sources)} sources — drivers nearby are being warned."
+        message = (
+            "Confirmed by responders — drivers nearby are being warned."
+            if new_status == "confirmed"
+            else f"Backed up by {len(sources)} independent sources — drivers nearby are being warned."
+        )
     else:
         message = "Thanks — this adds weight to a warning already on this stretch."
     return {"id": str(signal_id), "kind": data.kind, "status": new_status, "sources": len(sources),
