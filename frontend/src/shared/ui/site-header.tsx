@@ -18,6 +18,12 @@ const nav = [
   { href: "/download", label: "Get the app" },
 ];
 
+// Shown in the mobile menu, where drivers will look for them.
+const mobileExtras = [
+  { href: "/checkin", label: "Road check-in" },
+  { href: "/trip", label: "Trip guardian" },
+];
+
 function DesktopNav({ pathname }: { pathname: string | null }) {
   return (
     <nav className="hidden flex-1 items-center gap-1 md:flex" aria-label="Main">
@@ -100,7 +106,7 @@ export function SiteHeader() {
       {open && (
         <nav className="border-t border-base-300 md:hidden" aria-label="Mobile">
           <ul className="wrap divide-y divide-base-300 py-2">
-            {[...nav, ...(home ? [home] : [{ href: "/signin", label: "Sign in" }])].map((item) => (
+            {[...nav, ...mobileExtras, ...(home ? [home] : [{ href: "/signin", label: "Sign in" }])].map((item) => (
               <li key={item.href}>
                 <Link href={item.href} className="block py-3 text-base font-medium" onClick={() => setOpen(false)}>
                   {item.label}

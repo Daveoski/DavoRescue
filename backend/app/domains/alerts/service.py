@@ -52,22 +52,52 @@ def _send(sub: dict, payload: str) -> int | None:
         return None
 
 
-async def push_incident(conn: asyncpg.Connection, incident: dict, exclude_user_id: str | None = None) -> int:
+async def push_nearby(
+    conn: asyncpg.Connection,
+    lat: float,
+    lng: float,
+    *,
+    title: str,
+    body: str,
+    url: str,
+    tag: str,
+    severity: int,
+    exclude_user_id: str | None = None,
+) -> int:
+    """Notify every subscribed user whose alert radius covers the point. Returns how many were reached."""
     if not get_settings().push_enabled:
         return 0
-    targets = [t for t in await users_to_alert(conn, incident["lat"], incident["lng"]) if t["user_id"] != exclude_user_id]
+    targets = [t for t in await users_to_alert(conn, lat, lng) if t["user_id"] != exclude_user_id]
     if not targets:
         return 0
-    place = incident.get("road_name") or incident.get("lga") or "near you"
-    payload = json.dumps({
-        "title": f"{incident['subtype'].title()} · {place}",
-        "body": incident.get("public_alert") or "Verified emergency reported near you.",
-        "url": f"/incidents/{incident['ref']}",
-        "tag": incident["ref"],
-        "severity": incident["severity"],
-    })
+    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag, "severity": severity})
     statuses = await asyncio.gather(*(asyncio.to_thread(_send, t, payload) for t in targets))
     gone = [t["endpoint"] for t, s in zip(targets, statuses, strict=True) if s in (404, 410)]
     if gone:
         await conn.execute("delete from push_subscriptions where endpoint = any($1::text[])", gone)
+    return sum(1 for s in statuses if s and 200 <= s < 300)
+
+
+async def push_incident(conn: asyncpg.Connection, incident: dict, exclude_user_id: str | None = None) -> int:
+    place = incident.get("road_name") or incident.get("lga") or "near you"
+    return await push_nearby(
+        conn,
+        incident["lat"],
+        incident["lng"],
+        title=f"{incident['subtype'].title()} · {place}",
+        body=incident.get("public_alert") or "Verified emergency reported near you.",
+        url=f"/incidents/{incident['ref']}",
+        tag=incident["ref"],
+        severity=incident["severity"],
+        exclude_user_id=exclude_user_id,
+    )
+
+
+async def push_to_user(conn: asyncpg.Connection, user_id: str, *, title: str, body: str, url: str, tag: str) -> int:
+    """Notify one user on every device they've subscribed."""
+    if not get_settings().push_enabled:
+        return 0
+    rows = await conn.fetch("select endpoint, p256dh, auth from push_subscriptions where user_id = $1::uuid", user_id)
+    payload = json.dumps({"title": title, "body": body, "url": url, "tag": tag, "severity": 4})
+    statuses = await asyncio.gather(*(asyncio.to_thread(_send, dict(r), payload) for r in rows))
     return sum(1 for s in statuses if s and 200 <= s < 300)

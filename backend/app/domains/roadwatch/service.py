@@ -8,6 +8,7 @@ import asyncpg
 
 from app.core.config import get_settings
 from app.core.geo import bbox_around
+from app.domains.roadpulse import signals
 from app.domains.roadwatch import scoring
 from app.domains.roadwatch.assess import assess
 from app.domains.roadwatch.imagery import ImageryUnavailable, stretch_imagery
@@ -109,6 +110,8 @@ async def road_watch(conn: asyncpg.Connection) -> dict:
         """
     )
     incidents = await _recent_incidents(conn)
+    warnings = await signals.clusters(conn)
+    pulse = await signals.segment_pulse(conn)
     now = datetime.now(UTC)
     pad = 0.004  # ~400 m: cheap box test before exact distance
 
@@ -124,6 +127,9 @@ async def road_watch(conn: asyncpg.Connection) -> dict:
             scoring.environment_risk(r["exposure_risk"], r["physical_risk"]) if r["scanned_at"] is not None else None
         )
         risk, level = scoring.overall(incident, environment)
+        here = [w for w in warnings if w["segment"] and w["segment"]["id"] == r["id"]]
+        risk, level = scoring.with_warnings(risk, [w["status"] for w in here])
+        p = pulse.get(r["id"])
         segment = {
             "id": r["id"],
             "seq": r["seq"],
@@ -139,6 +145,12 @@ async def road_watch(conn: asyncpg.Connection) -> dict:
                 {"ref": i["ref"], "subtype": i["subtype"], "created_at": i["created_at"]}
                 for i in sorted(nearby, key=lambda i: i["created_at"], reverse=True)[:3]
             ],
+            "warnings": here,
+            "pulse": {
+                "all_clear_3h": p["all_clear"] if p else 0,
+                "last_all_clear": p["last_all_clear"] if p else None,
+                "turning_back_1h": p["turning_back"] if p else 0,
+            },
             "assessment": None if r["scanned_at"] is None else {
                 "scanned_at": r["scanned_at"],
                 "method": r["method"],
@@ -182,4 +194,6 @@ async def road_watch(conn: asyncpg.Connection) -> dict:
         "ai_review": get_settings().ai_enabled,
         "window_days": scoring.WINDOW_DAYS,
         "corridors": out,
+        # Warnings off the major roads still show on the map.
+        "warnings": warnings,
     }

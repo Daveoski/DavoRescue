@@ -1,3 +1,5 @@
+import type { WarningCluster } from "@/domains/roadpulse/types";
+
 export type RoadLevel = "safe" | "caution" | "avoid";
 
 export type Hazard = { type: string; severity: number; note: string };
@@ -30,6 +32,8 @@ export type Stretch = {
   incident_risk: number;
   incidents_90d: number;
   recent_incidents: { ref: string; subtype: string; created_at: string }[];
+  warnings: WarningCluster[];
+  pulse: { all_clear_3h: number; last_all_clear: string | null; turning_back_1h: number };
   assessment: StretchAssessment | null;
 };
 
@@ -52,4 +56,5 @@ export type RoadWatch = {
   ai_review: boolean;
   window_days: number;
   corridors: Corridor[];
+  warnings: WarningCluster[];
 };

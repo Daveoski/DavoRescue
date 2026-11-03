@@ -15,6 +15,9 @@ from app.domains.auth.router import router as auth_router
 from app.domains.incidents.router import responder_router
 from app.domains.incidents.router import router as incidents_router
 from app.domains.roads.router import router as roads_router
+from app.domains.roadpulse.router import responder_router as signals_responder_router
+from app.domains.roadpulse.router import router as pulse_router
+from app.domains.roadpulse.router import trips_router
 from app.domains.roadwatch.router import router as roadwatch_router
 
 logging.basicConfig(level=logging.INFO)
@@ -46,6 +49,7 @@ async def validation_error(_: Request, exc: RequestValidationError) -> JSONRespo
 
 for router in (
     auth_router, incidents_router, responder_router, agencies_router, alerts_router, roads_router, roadwatch_router,
+    pulse_router, signals_responder_router, trips_router,
 ):
     app.include_router(router)
 

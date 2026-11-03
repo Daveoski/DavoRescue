@@ -17,7 +17,8 @@ router = APIRouter(prefix="/api/roadwatch", tags=["road watch"])
 @router.get("")
 async def road_watch(response: Response, conn: asyncpg.Connection = Depends(get_db)) -> dict:
     """Major Enugu roads, stretch by stretch: satellite review plus live incident risk."""
-    response.headers["Cache-Control"] = "public, s-maxage=120, stale-while-revalidate=600"
+    # Short: live early warnings change this response.
+    response.headers["Cache-Control"] = "public, s-maxage=30, stale-while-revalidate=120"
     return await service.road_watch(conn)
 
 

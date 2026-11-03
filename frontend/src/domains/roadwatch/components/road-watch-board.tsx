@@ -1,10 +1,12 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useState } from "react";
 
 import { useAuth, useSessionReady } from "@/domains/auth/store";
+import { signLabel, statusMeta } from "@/domains/roadpulse/catalogue";
 import { ApiError } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
 import { timeAgo } from "@/shared/lib/format";
@@ -58,7 +60,7 @@ export function RoadWatchBoard() {
       setFailed(true);
     }
   };
-  usePoll(load, 300_000);
+  usePoll(load, 60_000);
 
   async function scanNow() {
     setScanning(true);
@@ -138,7 +140,40 @@ export function RoadWatchBoard() {
             </p>
           )}
           {scanNote && <p className="rounded-field bg-base-200 px-3 py-2 text-xs">{scanNote}</p>}
+          <Link href="/checkin" className="btn btn-sm btn-secondary w-full">
+            On the road? Check in
+          </Link>
         </div>
+
+        {data && data.warnings.length > 0 && (
+          <div className="border-b border-base-300 bg-warning/10 p-4">
+            <p className="eyebrow mb-2 !text-base-content">Active warnings</p>
+            <ul className="space-y-2">
+              {data.warnings.map((w) => (
+                <li key={w.id}>
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={() => {
+                      const c = data.corridors.find((x) => x.segments.some((s) => s.id === w.segment?.id));
+                      const s = c?.segments.find((x) => x.id === w.segment?.id);
+                      if (c && s) select(c, s);
+                    }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <TriangleAlert className="size-4 shrink-0" style={{ color: statusMeta[w.status].color }} aria-hidden />
+                      <span className="text-sm font-semibold">{w.signs.map((s) => signLabel[s] ?? s).join(" · ")}</span>
+                    </span>
+                    <span className="block pl-6 text-xs text-base-content/65">
+                      {w.segment ? `${w.segment.corridor_name}, ${w.segment.label}` : "Off the major roads"} · {statusMeta[w.status].label}
+                      {" "}· {w.sources} source{w.sources > 1 ? "s" : ""} · {timeAgo(w.last_seen)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {stretch && corridor ? (
@@ -183,7 +218,7 @@ export function RoadWatchBoard() {
       </aside>
 
       <div className="order-1 h-[55dvh] lg:order-2 lg:h-auto">
-        {data && <RoadWatchMap corridors={data.corridors} selected={stretch} onSelect={select} />}
+        {data && <RoadWatchMap corridors={data.corridors} warnings={data.warnings} selected={stretch} onSelect={select} />}
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
-import { Satellite, ShieldAlert, X } from "lucide-react";
+import { Activity, Satellite, ShieldAlert, X } from "lucide-react";
 import Link from "next/link";
+
+import { signLabel, statusMeta } from "@/domains/roadpulse/catalogue";
 
 import { cn } from "@/shared/lib/cn";
 import { timeAgo, titleCase } from "@/shared/lib/format";
@@ -40,6 +42,38 @@ export function StretchDetail({ corridor, stretch, onClose }: { corridor: Corrid
           <span className={cn("badge badge-lg", meta.badge)}>{meta.label}</span>
           {meta.key !== "pending" && <span className="font-mono text-sm tabular text-base-content/60">risk {stretch.risk}/100</span>}
         </div>
+
+        <section>
+          <h3 className="eyebrow mb-2 flex items-center gap-1.5">
+            <Activity className="size-3.5" aria-hidden /> Right now
+          </h3>
+          {stretch.warnings.length > 0 && (
+            <ul className="mb-3 space-y-2">
+              {stretch.warnings.map((w) => (
+                <li key={w.id} className="rounded-field border border-warning/40 bg-warning/10 p-3 text-sm">
+                  <p className="font-semibold">{w.signs.map((s) => signLabel[s] ?? s).join(" · ")}</p>
+                  <p className="text-xs text-base-content/70">
+                    <span className={cn("badge badge-xs mr-1", statusMeta[w.status].badge)}>{statusMeta[w.status].label}</span>
+                    {w.sources} source{w.sources > 1 ? "s" : ""} · last report {timeAgo(w.last_seen)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-sm">
+            {stretch.pulse.all_clear_3h > 0
+              ? `${stretch.pulse.all_clear_3h} driver${stretch.pulse.all_clear_3h > 1 ? "s" : ""} reported all clear in the last 3 hours, latest ${timeAgo(stretch.pulse.last_all_clear!)}.`
+              : "No driver check-ins in the last 3 hours."}
+            {stretch.pulse.turning_back_1h > 0 && (
+              <strong className="block text-warning">
+                {stretch.pulse.turning_back_1h} report{stretch.pulse.turning_back_1h > 1 ? "s" : ""} of vehicles turning back in the last hour.
+              </strong>
+            )}
+          </p>
+          <Link href="/checkin" className="link mt-1 inline-block text-sm">
+            Travelling this road? Check in
+          </Link>
+        </section>
 
         <section>
           <h3 className="eyebrow mb-2 flex items-center gap-1.5">

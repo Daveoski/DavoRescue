@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ReportForm } from "@/domains/report/components/report-form";
 
@@ -15,6 +16,13 @@ export default function ReportPage() {
       <header className="mb-8">
         <p className="eyebrow">Anonymous · takes under a minute</p>
         <h1 className="mt-2 text-4xl font-extrabold sm:text-5xl">Report an emergency</h1>
+        <p className="mt-3 text-sm text-base-content/70">
+          Nothing has happened yet, but something looks wrong on the road?{" "}
+          <Link href="/checkin" className="link link-primary font-medium">
+            Send a warning sign instead
+          </Link>
+          .
+        </p>
       </header>
       <ReportForm />
     </div>

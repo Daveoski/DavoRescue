@@ -58,5 +58,17 @@ def overall(incident: int, environment: int | None) -> tuple[int, str]:
     risk = max(incident, min(env_part, AVOID_FROM - 1))
     if incident > 0 and environment is not None and environment >= 50:
         risk = min(100, risk + 10)  # trouble reported on an exposed stretch
-    level = "safe" if risk < SAFE_BELOW else "avoid" if risk >= AVOID_FROM else "caution"
-    return risk, level
+    return risk, _level(risk)
+
+
+def _level(risk: int) -> str:
+    return "safe" if risk < SAFE_BELOW else "avoid" if risk >= AVOID_FROM else "caution"
+
+
+def with_warnings(risk: int, statuses: list[str]) -> tuple[int, str]:
+    """Live early warnings on a stretch: corroborated means caution, responder-confirmed means avoid."""
+    if "confirmed" in statuses:
+        risk = max(risk, 80)
+    elif "corroborated" in statuses:
+        risk = max(risk, 50)
+    return risk, _level(risk)

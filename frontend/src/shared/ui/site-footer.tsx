@@ -28,6 +28,8 @@ export function SiteFooter() {
             <li><Link className="link link-hover" href="/report">Report an emergency</Link></li>
             <li><Link className="link link-hover" href="/live">Live incident map</Link></li>
             <li><Link className="link link-hover" href="/roads">Road Watch</Link></li>
+            <li><Link className="link link-hover" href="/checkin">Road check-in</Link></li>
+            <li><Link className="link link-hover" href="/trip">Trip guardian</Link></li>
             <li><Link className="link link-hover" href="/alerts">Alerts near me</Link></li>
             <li><Link className="link link-hover" href="/download">Android app</Link></li>
             <li><Link className="link link-hover" href="/responder">Responder console</Link></li>

@@ -150,7 +150,7 @@ async def create_report(conn: asyncpg.Connection, data: IncidentIn, user: UserOu
     pushed = 0
     if result.verdict == "true":
         incident["location_summary"] = road.summary
-        dispatches, pushed = await _dispatch_and_alert(conn, incident, result.needs, user.id if user else None)
+        dispatches, pushed = await dispatch_and_alert(conn, incident, result.needs, user.id if user else None)
 
     agencies = await list_agencies(conn, road.state if road.state != "other" else None)
     return {
@@ -199,7 +199,7 @@ async def _apply_verdict(conn: asyncpg.Connection, incident_id, result: Verifica
     return dict(row)
 
 
-async def _dispatch_and_alert(conn: asyncpg.Connection, incident: dict, needs: list[str], reporter_id: str | None):
+async def dispatch_and_alert(conn: asyncpg.Connection, incident: dict, needs: list[str], reporter_id: str | None):
     dispatches = await dispatch_incident(conn, incident, needs)
     sent = sum(1 for d in dispatches if d["status"] == "sent")
     if sent:
@@ -214,6 +214,46 @@ async def _dispatch_and_alert(conn: asyncpg.Connection, incident: dict, needs: l
     if pushed:
         await repo.add_event(conn, incident["id"], "alerted", f"{pushed} nearby user(s) notified")
     return dispatches, pushed
+
+
+NEEDS_BY_CATEGORY = {"crime": ["police"], "fire": ["fire"], "medical": ["ambulance"],
+                     "road": ["road_safety", "ambulance"], "disaster": ["disaster"]}
+
+
+async def create_confirmed_incident(
+    conn: asyncpg.Connection,
+    *,
+    category: str,
+    subtype: str,
+    description: str,
+    lat: float,
+    lng: float,
+    severity: int,
+    public_alert: str,
+    actor: UserOut,
+) -> dict:
+    """An incident a responder has already confirmed (e.g. an escalated early warning): skip the AI desk, dispatch."""
+    road = await road_context(lat, lng)
+    row = await conn.fetchrow(
+        """
+        insert into incidents (ref, category, subtype, description, lat, lng, road_name, road_class, navigability,
+                               access_lat, access_lng, access_distance_m, address, lga, state, reporter_id,
+                               is_anonymous, reporter_fingerprint, status, verdict, verification_source, confidence,
+                               severity, ai_summary, public_alert, dispatch_message, verified_at)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::uuid, false, 'responder',
+                'verified', 'true', 'human', 1, $17, $18, $19, $20, now())
+        returning *
+        """,
+        new_incident_ref(), category, subtype, description, lat, lng, road.road_name, road.road_class,
+        road.navigability, road.access.lat if road.access else None, road.access.lng if road.access else None,
+        road.access.distance_m if road.access else None, road.address, road.lga, road.state, actor.id,
+        severity, description[:300], public_alert, f"{subtype.upper()} (confirmed early warning): {description}"[:300],
+    )
+    incident = dict(row)
+    await repo.add_event(conn, incident["id"], "verified", f"Confirmed by {actor.full_name} from road warnings", actor.id)
+    incident["location_summary"] = road.summary
+    await dispatch_and_alert(conn, incident, NEEDS_BY_CATEGORY[category], None)
+    return incident
 
 
 async def update_status(conn: asyncpg.Connection, ref: str, new_status: str, note: str | None, actor: UserOut) -> dict:
@@ -239,9 +279,7 @@ async def update_status(conn: asyncpg.Connection, ref: str, new_status: str, not
         refreshed = await repo.get_by_ref(conn, ref)
         assert refreshed is not None
         refreshed["location_summary"] = refreshed.get("road_name") or refreshed.get("address") or ""
-        needs = {"crime": ["police"], "fire": ["fire"], "medical": ["ambulance"],
-                 "road": ["road_safety", "ambulance"], "disaster": ["disaster"]}[refreshed["category"]]
-        await _dispatch_and_alert(conn, refreshed, needs, None)
+        await dispatch_and_alert(conn, refreshed, NEEDS_BY_CATEGORY[refreshed["category"]], None)
 
     detail = await repo.responder_detail(conn, ref)
     assert detail is not None

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from app.core.db import get_db
 from app.core.geo import SOUTH_EAST
-from app.core.security import fingerprint
+from app.core.security import client_ip, fingerprint
 from app.domains.auth.deps import optional_user, require_role
 from app.domains.auth.schemas import UserOut
 from app.domains.incidents import repository as repo
@@ -18,11 +18,6 @@ responder_router = APIRouter(prefix="/api/responder", tags=["responder"])
 responder = require_role("responder", "admin")
 
 
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
-
-
 @router.post("", status_code=201)
 async def report(
     data: IncidentIn,
@@ -31,7 +26,7 @@ async def report(
     conn: asyncpg.Connection = Depends(get_db),
 ) -> dict:
     """Report an emergency. No account needed."""
-    return await service.create_report(conn, data, user, fingerprint(_client_ip(request)))
+    return await service.create_report(conn, data, user, fingerprint(client_ip(request)))
 
 
 @router.get("")

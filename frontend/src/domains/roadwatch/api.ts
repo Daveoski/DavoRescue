@@ -27,7 +27,7 @@ export type DisplayLevel = { key: "safe" | "caution" | "avoid" | "pending"; labe
  * have no evidence either way — so it stays grey instead of green.
  */
 export function displayLevel(s: Stretch): DisplayLevel {
-  const evidence = s.incidents_90d > 0 || s.assessment?.method === "ai";
+  const evidence = s.incidents_90d > 0 || s.warnings.length > 0 || s.assessment?.method === "ai";
   if (!evidence && s.level === "safe") {
     return { key: "pending", label: "No reports · AI review pending", short: "Pending", color: UNREVIEWED_COLOR, badge: "badge-ghost" };
   }

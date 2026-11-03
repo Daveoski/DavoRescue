@@ -105,6 +105,17 @@ vercel deploy --prod
 
 Stretch geometry lives in `backend/app/domains/roadwatch/corridors.json`, built with `python -m scripts.build_corridors` (OSM geocoding + OSRM routing). `python -m app.db.migrate` loads it. A Vercel Cron job (`/api/roadwatch/scan`, daily, authenticated with `CRON_SECRET`) reviews the 10 stretches due next; admins can also scan from the page, and `python -m app.db.scan_roads --all` reviews everything from a terminal. Without `ANTHROPIC_API_KEY`, stretches get the measured vegetation only, and the AI review runs once the key is added. A full AI pass costs roughly US$2–3.
 
+## Early warnings and trip guardian
+
+Nothing can verify an attack before it happens; what DavoRescue does is catch the warning signs and verify them fast.
+
+- **Road check-in** (`/checkin`, no account): one tap for *all clear*, *vehicles turning back*, or a *warning sign* (people loitering by the road, blockade, unofficial checkpoint, traffic suddenly stopped, gunshots). Signals snap to the nearest Road Watch stretch.
+- **Verification ladder** (`backend/app/domains/roadpulse/signals.py`): a single report is **unverified** and only visible to responders. It becomes **corroborated** when independent sources agree within 1.5 km and 30 minutes (signed-in users count individually; anonymous reporters count once per network), or a reporter with two or more verified reports sends it. Responders **confirm**, **dismiss**, or **escalate** (creates a confirmed incident and pages agencies). Corroborated and confirmed warnings appear on Road Watch, push-alert nearby users, and raise the stretch to *caution* / *avoid*. Warnings expire after 2 hours.
+- **Road pulse**: each stretch shows recent all-clears (3 h) and turn-backs (1 h).
+- **Trip guardian** (`/trip`, signed in): destination, expected arrival and up to three contacts; a tracking link (`/trip/<token>`) to share on WhatsApp; the phone reports its position every minute while the page is open. At the ETA the traveller gets a push reminder; 15 minutes later contacts are texted (when Termii is configured) and the tracking page shows *overdue*.
+
+Reminders and overdue alerts run in a sweep triggered by normal traffic at most once a minute. For timing that doesn't depend on traffic, point a minute-level scheduler (e.g. cron-job.org) at `GET /api/pulse/sweep` with `Authorization: Bearer $CRON_SECRET` — Vercel's Hobby plan only allows daily cron jobs.
+
 ## Themes
 
 Every page supports light and dark themes. The header (and the mobile menu and footer) has a Light / Dark / System switch; the choice is saved on the device and applied by an inline script in `<head>` before the first paint, so pages never flash the wrong theme. Map tiles and the offline page follow the same choice.

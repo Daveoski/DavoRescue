@@ -44,6 +44,12 @@ def decode_access_token(token: str) -> dict | None:
         return None
 
 
+def client_ip(request) -> str:
+    """The caller's IP; behind Vercel's proxy it's the first X-Forwarded-For entry."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+
+
 def fingerprint(ip: str) -> str:
     """Salted hash so anonymous reporters can be rate-limited without storing their IP."""
     salt = get_settings().ip_hash_salt

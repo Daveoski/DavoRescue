@@ -168,3 +168,49 @@ create table if not exists road_assessments (
 );
 
 create index if not exists road_assessments_segment_idx on road_assessments (segment_id, scanned_at desc);
+
+-- Road pulse: drivers' check-ins and early warning signs. Signals that agree are grouped into a cluster.
+create table if not exists road_signals (
+  id                    uuid primary key default gen_random_uuid(),
+  cluster_id            uuid not null,
+  kind                  text not null check (kind in ('warning', 'turning_back', 'all_clear')),
+  sign                  text,
+  note                  text,
+  lat                   double precision not null,
+  lng                   double precision not null,
+  accuracy_m            double precision,
+  segment_id            text references road_segments(id) on delete set null,
+  reporter_id           uuid references users(id) on delete set null,
+  reporter_fingerprint  text not null,
+  status                text not null default 'unverified'
+                        check (status in ('unverified', 'corroborated', 'confirmed', 'dismissed')),
+  reviewed_by           uuid references users(id) on delete set null,
+  incident_id           uuid references incidents(id) on delete set null,
+  created_at            timestamptz not null default now(),
+  expires_at            timestamptz not null
+);
+
+create index if not exists road_signals_recent_idx on road_signals (created_at desc);
+create index if not exists road_signals_cluster_idx on road_signals (cluster_id);
+create index if not exists road_signals_geo_idx on road_signals (lat, lng);
+
+-- Trip guardian: a traveller's expected arrival, watched on their behalf.
+create table if not exists trips (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references users(id) on delete cascade,
+  share_token        text not null unique,
+  destination        text not null,
+  eta                timestamptz not null,
+  contacts           jsonb not null default '[]',
+  status             text not null default 'active' check (status in ('active', 'arrived', 'cancelled')),
+  last_lat           double precision,
+  last_lng           double precision,
+  last_seen_at       timestamptz,
+  reminded_at        timestamptz,
+  overdue_alerted_at timestamptz,
+  alert_log          jsonb not null default '[]',
+  created_at         timestamptz not null default now(),
+  ended_at           timestamptz
+);
+
+create index if not exists trips_active_idx on trips (status, eta);

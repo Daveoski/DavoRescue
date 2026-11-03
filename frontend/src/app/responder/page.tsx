@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { RequireAuth } from "@/domains/auth/components/require-auth";
-import { ResponderConsole } from "@/domains/responder/components/responder-console";
+import { ResponderTabs } from "@/domains/responder/components/responder-tabs";
 
 export const metadata: Metadata = {
   title: "Responder console",
@@ -16,7 +16,7 @@ export default function ResponderPage() {
         <h1 className="mt-2 text-3xl font-extrabold">Incident console</h1>
       </header>
       <RequireAuth responder next="/responder">
-        <ResponderConsole />
+        <ResponderTabs />
       </RequireAuth>
     </div>
   );
