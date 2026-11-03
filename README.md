@@ -95,6 +95,16 @@ vercel env add NEXT_PUBLIC_GOOGLE_MAPS_KEY production --value "AIza…" --no-sen
 vercel deploy --prod
 ```
 
+## Road Watch
+
+`/roads` rates every ~4 km stretch of Enugu's major roads — the Enugu–Onitsha and Enugu–Port Harcourt expressways and the Ninth Mile–Nsukka, Opi–Nsukka, Abakaliki, Obollo-Afor, Agbani and Adani roads (76 stretches, ~309 km) — as **safe**, **caution** or **avoid**.
+
+- **Reported incidents** (verified, within 300 m, last 90 days, weighted by severity and recency) carry the most weight and are recomputed on every request.
+- **Satellite review**: each stretch is photographed from Esri World Imagery (two ~1.8 km views at zoom 16, typically 30–50 cm detail, with the capture date recorded). The share of vegetation within 120 m of the road is measured from the pixels, and Claude reviews the images for physical hazards (erosion, flooding, broken surface, narrowing) and isolation (thick cover, no settlements). On its own this can raise a stretch to *caution*, never *avoid*.
+- Satellite photos are not live and can be months old; the AI is told not to infer crime from them, and the page says so.
+
+Stretch geometry lives in `backend/app/domains/roadwatch/corridors.json`, built with `python -m scripts.build_corridors` (OSM geocoding + OSRM routing). `python -m app.db.migrate` loads it. A Vercel Cron job (`/api/roadwatch/scan`, daily, authenticated with `CRON_SECRET`) reviews the 10 stretches due next; admins can also scan from the page, and `python -m app.db.scan_roads --all` reviews everything from a terminal. Without `ANTHROPIC_API_KEY`, stretches get the measured vegetation only, and the AI review runs once the key is added. A full AI pass costs roughly US$2–3.
+
 ## Themes
 
 Every page supports light and dark themes. The header (and the mobile menu and footer) has a Light / Dark / System switch; the choice is saved on the device and applied by an inline script in `<head>` before the first paint, so pages never flash the wrong theme. Map tiles and the offline page follow the same choice.

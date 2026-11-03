@@ -1,4 +1,4 @@
-import { ArrowRight, BadgeCheck, Camera, EyeOff, MapPinned, Phone, Radio, Route, Smartphone } from "lucide-react";
+import { ArrowRight, BadgeCheck, Camera, EyeOff, MapPinned, Phone, Radio, Route, Satellite, Smartphone } from "lucide-react";
 import Link from "next/link";
 
 import { agencies, primaryLine } from "@/domains/agencies/data";
@@ -165,6 +165,26 @@ export default function HomePage() {
             </li>
           ))}
         </ol>
+      </section>
+
+      <section className="wrap pb-20" aria-labelledby="road-watch">
+        <div className="grid items-center gap-6 rounded-box border border-base-300 p-6 sm:p-8 md:grid-cols-[1fr_auto]">
+          <div className="flex gap-4">
+            <Satellite className="mt-1 size-7 shrink-0 text-primary" aria-hidden />
+            <div>
+              <h2 id="road-watch" className="text-2xl font-extrabold sm:text-3xl">
+                Planning a trip? Check Road Watch first.
+              </h2>
+              <p className="mt-2 max-w-2xl text-base-content/70">
+                Every stretch of the Onitsha and Port Harcourt expressways and the Nsukka, Opi, Abakaliki, Agbani and Adani roads,
+                rated from recent verified reports and an AI review of satellite imagery for erosion, flooding and isolated bush.
+              </p>
+            </div>
+          </div>
+          <Link href="/roads" className="btn btn-secondary">
+            Open Road Watch
+          </Link>
+        </div>
       </section>
 
       <section className="border-y border-base-300 bg-base-200" aria-labelledby="what">

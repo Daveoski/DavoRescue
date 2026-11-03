@@ -129,3 +129,42 @@ create table if not exists push_subscriptions (
   auth        text not null,
   created_at  timestamptz not null default now()
 );
+
+-- Road Watch: ~4 km stretches of Enugu's major roads (seeded from roadwatch/corridors.json)
+create table if not exists road_segments (
+  id             text primary key,
+  corridor_id    text not null,
+  corridor_name  text not null,
+  ref            text,
+  seq            integer not null,
+  label          text not null,
+  lga            text,
+  length_m       integer not null,
+  path           jsonb not null,
+  min_lat        double precision not null,
+  max_lat        double precision not null,
+  min_lng        double precision not null,
+  max_lng        double precision not null
+);
+
+-- Satellite review of a stretch. Incident risk is computed live when read, so it never goes stale.
+create table if not exists road_assessments (
+  id              bigserial primary key,
+  segment_id      text not null references road_segments(id) on delete cascade,
+  scanned_at      timestamptz not null default now(),
+  method          text not null check (method in ('ai', 'imagery')),
+  exposure_risk   smallint not null,
+  physical_risk   smallint not null,
+  vegetation_pct  smallint,
+  surface         text,
+  settlement      text,
+  hazards         jsonb not null default '[]',
+  summary         text not null,
+  advice          text,
+  confidence      real,
+  model           text,
+  imagery_date    date,
+  imagery_res_m   real
+);
+
+create index if not exists road_assessments_segment_idx on road_assessments (segment_id, scanned_at desc);

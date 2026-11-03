@@ -11,7 +11,7 @@
       "entrypoint": "app.main:app",
       "functions": {
         "app/main.py": {
-          "maxDuration": 60,
+          "maxDuration": 300,
           "regions": ["fra1"]
         }
       }
@@ -20,5 +20,6 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": { "service": "api" } },
     { "source": "/(.*)", "destination": { "service": "web" } }
-  ]
+  ],
+  "crons": [{ "path": "/api/roadwatch/scan", "schedule": "0 4 * * *" }]
 }

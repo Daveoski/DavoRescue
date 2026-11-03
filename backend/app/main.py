@@ -15,6 +15,7 @@ from app.domains.auth.router import router as auth_router
 from app.domains.incidents.router import responder_router
 from app.domains.incidents.router import router as incidents_router
 from app.domains.roads.router import router as roads_router
+from app.domains.roadwatch.router import router as roadwatch_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -43,7 +44,9 @@ async def validation_error(_: Request, exc: RequestValidationError) -> JSONRespo
     return JSONResponse(status_code=422, content={"detail": message, "field": field or None})
 
 
-for router in (auth_router, incidents_router, responder_router, agencies_router, alerts_router, roads_router):
+for router in (
+    auth_router, incidents_router, responder_router, agencies_router, alerts_router, roads_router, roadwatch_router,
+):
     app.include_router(router)
 
 

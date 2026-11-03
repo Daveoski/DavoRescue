@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from app.core import config
+from app.core import ai, config
 from app.domains.verification import service
 from app.domains.verification.schemas import EvidencePhoto, VerificationInput
 
@@ -37,7 +37,7 @@ VERDICT = {
 class _Handler(BaseHTTPRequestHandler):
     captured: dict = {}
 
-    def do_POST(self):  # noqa: N802 — http.server API
+    def do_POST(self):  # noqa: N802 â€” http.server API
         length = int(self.headers["content-length"])
         _Handler.captured = {
             "path": self.path,
@@ -73,11 +73,11 @@ def fake_api(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", f"http://127.0.0.1:{server.server_port}")
     config.get_settings.cache_clear()
-    service._clients.clear()
+    ai._clients.clear()
     yield _Handler
     server.shutdown()
     config.get_settings.cache_clear()
-    service._clients.clear()
+    ai._clients.clear()
 
 
 async def test_verify_sends_expected_request_and_parses_verdict(fake_api):

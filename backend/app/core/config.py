@@ -37,6 +37,8 @@ class Settings:
     vapid_private_key: str
     vapid_subject: str
     cors_origins: tuple[str, ...]
+    # Vercel Cron sends "Authorization: Bearer <CRON_SECRET>" when it calls scheduled jobs.
+    cron_secret: str
 
     @property
     def ai_enabled(self) -> bool:
@@ -83,4 +85,5 @@ def get_settings() -> Settings:
         vapid_private_key=_env("VAPID_PRIVATE_KEY"),
         vapid_subject=_env("VAPID_SUBJECT", f"{site_url}/contact"),
         cors_origins=_split(_env("CORS_ORIGINS", "http://localhost:3000,https://localhost")),
+        cron_secret=_env("CRON_SECRET"),
     )

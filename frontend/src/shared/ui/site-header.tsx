@@ -13,8 +13,8 @@ import { Logo } from "./logo";
 
 const nav = [
   { href: "/live", label: "Live map" },
+  { href: "/roads", label: "Road watch" },
   { href: "/directory", label: "Emergency numbers" },
-  { href: "/safety", label: "Road safety" },
   { href: "/download", label: "Get the app" },
 ];
 

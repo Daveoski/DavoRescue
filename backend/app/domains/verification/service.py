@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 
 import anthropic
 
+from app.core.ai import FALLBACK_BETA, get_client
 from app.core.config import get_settings
 from app.domains.verification import rules
 from app.domains.verification.prompt import SYSTEM_PROMPT, build_user_text
@@ -18,19 +18,6 @@ from app.domains.verification.schemas import (
 )
 
 log = logging.getLogger("davorescue.verification")
-
-_clients: dict[int, anthropic.AsyncAnthropic] = {}
-
-
-def _get_client() -> anthropic.AsyncAnthropic:
-    # The async HTTP client is tied to the loop it first ran on.
-    loop_id = id(asyncio.get_running_loop())
-    if loop_id not in _clients:
-        # Emergencies can't wait on long retries: one retry, then fall back to rules.
-        _clients[loop_id] = anthropic.AsyncAnthropic(
-            api_key=get_settings().anthropic_api_key, timeout=25.0, max_retries=1
-        )
-    return _clients[loop_id]
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -71,10 +58,11 @@ async def verify(inp: VerificationInput) -> VerificationResult:
     content.append({"type": "text", "text": build_user_text(inp)})
 
     try:
-        response = await _get_client().beta.messages.create(
+        # Emergencies can't wait on long retries: one retry, then fall back to rules.
+        response = await get_client(timeout=25.0).beta.messages.create(
             model=settings.ai_model,
             max_tokens=4000,
-            betas=["server-side-fallback-2026-07-01"],
+            betas=[FALLBACK_BETA],
             fallbacks="default",
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": content}],

@@ -22,7 +22,7 @@ def normalise_dsn(url: str) -> str:
     return urlunsplit(parts._replace(query=urlencode(query)))
 
 
-async def _init_connection(conn: asyncpg.Connection) -> None:
+async def init_connection(conn: asyncpg.Connection) -> None:
     for kind in ("json", "jsonb"):
         await conn.set_type_codec(kind, encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
@@ -43,7 +43,7 @@ async def get_pool() -> asyncpg.Pool:
             statement_cache_size=0,  # required behind Neon's PgBouncer pooler
             max_inactive_connection_lifetime=45,
             command_timeout=20,
-            init=_init_connection,
+            init=init_connection,
         )
         _pools[loop_id] = pool
     return pool
