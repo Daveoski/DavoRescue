@@ -61,7 +61,12 @@ export function CheckInPanel() {
             </span>
           </>
         ) : geo.status === "error" ? (
-          <span className="text-warning">{geo.error} Check-ins need your location.</span>
+          <span className="text-warning">
+            We can’t see your location. Allow location for this site (or turn on GPS) so we know which road you’re on.{" "}
+            <button type="button" className="link font-medium" onClick={geo.retry}>
+              Try again
+            </button>
+          </span>
         ) : (
           <>
             <span className="loading loading-ring loading-xs" /> Finding your position…
@@ -165,8 +170,8 @@ export function CheckInPanel() {
           </Link>{" "}
           or call <a href="tel:112" className="link font-mono font-semibold">112</a>.
         </p>
-        <p className="mt-2 flex items-center gap-1.5">
-          <Siren className="size-4 text-primary" aria-hidden />
+        <p className="mt-2">
+          <Siren className="mr-1.5 inline size-4 align-[-3px] text-primary" aria-hidden />
           Travelling?{" "}
           <Link href="/trip" className="link font-semibold">
             Start a trip
