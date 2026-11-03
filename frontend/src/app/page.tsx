@@ -1,8 +1,23 @@
-import { ArrowRight, BadgeCheck, Camera, EyeOff, MapPinned, Phone, Radio, Route, Satellite, Smartphone } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  BellRing,
+  Camera,
+  EyeOff,
+  LocateFixed,
+  MapPinned,
+  MessageSquareText,
+  Phone,
+  Radio,
+  Route,
+  Satellite,
+  Smartphone,
+} from "lucide-react";
 import Link from "next/link";
 
 import { agencies, primaryLine } from "@/domains/agencies/data";
 import { incidentTypes } from "@/domains/incidents/catalogue";
+import { TripGuardianCta } from "@/domains/roadpulse/components/trip-guardian-cta";
 import { site, states } from "@/shared/config/site";
 import { prettyPhone } from "@/shared/lib/format";
 import { JsonLd } from "@/shared/ui/json-ld";
@@ -23,6 +38,10 @@ const faqs = [
   {
     q: "What if the incident isn't on a proper road?",
     a: "Drop the pin anywhere — a footpath, a farm track or open bush. We record the exact GPS point, tell responders the spot isn't motorable, and give them the nearest point a vehicle can reach.",
+  },
+  {
+    q: "Can my family follow my journey?",
+    a: "Yes. Sign in, open Trip guardian, and add up to three people with your destination and arrival time. They get a text and an email with a link to follow your live location, and an alert with your last position if you haven't checked in 15 minutes after you were due.",
   },
   {
     q: "Is there a mobile app?",
@@ -47,6 +66,60 @@ const steps = [
     body: "Genuine reports go to the police, fire or ambulance service for that state with the coordinates attached, and everyone signed up nearby gets an alert to stay clear.",
   },
 ];
+
+const tripSteps = [
+  {
+    Icon: MessageSquareText,
+    title: "Your people get a text and an email",
+    body: "With your message — who you're with, the car, the route — and a link to follow your live location. No app needed on their side.",
+  },
+  {
+    Icon: LocateFixed,
+    title: "They watch you move",
+    body: "Your phone shares its position every 20 seconds until you tap “I’ve arrived safely”. Then sharing stops.",
+  },
+  {
+    Icon: BellRing,
+    title: "Not there in time? They're alerted",
+    body: "If you haven't checked in 15 minutes after your arrival time, they get your last position and a reminder to call 112.",
+  },
+];
+
+/** Decorative example of what a trip contact receives. */
+function TripTextSketch() {
+  return (
+    <div className="relative mx-auto w-full max-w-sm" aria-hidden>
+      <div className="rounded-[1.75rem] border border-base-300 bg-base-100 p-5 shadow-[0_18px_50px_-20px_rgb(0_0_0/0.35)]">
+        <div className="flex items-center justify-between border-b border-dashed border-base-300 pb-3 font-mono text-[11px] text-base-content/60">
+          <span>TEXT · DAVORESCUE</span>
+          <span>17:42 WAT</span>
+        </div>
+        <p className="mt-4 rounded-2xl rounded-tl-sm bg-base-200 p-4 text-sm leading-relaxed">
+          Ada is travelling to Nsukka, due 19:10. &ldquo;With Chidi in his grey Corolla, will call from UNN gate.&rdquo; Follow
+          live: <span className="text-primary underline">{site.url.replace(/^https?:\/\//, "")}/trip/k3Xa…</span>
+        </p>
+        <div className="mt-4 overflow-hidden rounded-box border border-base-300">
+          <div className="relative h-36 bg-base-200">
+            <svg viewBox="0 0 320 144" className="absolute inset-0 h-full w-full">
+              <path d="M-10 120 C 60 110, 90 70, 150 66 S 250 30, 330 18" fill="none" strokeWidth="10" strokeLinecap="round" className="stroke-base-content/15" />
+              <path d="M20 113 C 70 104, 100 70, 150 66" fill="none" strokeWidth="3" strokeDasharray="5 6" strokeLinecap="round" className="stroke-info" />
+            </svg>
+            <span className="absolute left-[46%] top-[42%]">
+              <span className="pulse-ring absolute -inset-2.5 rounded-full bg-info/40" />
+              <span className="relative block size-3.5 rounded-full border-2 border-white bg-info" />
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <span className="size-2 rounded-full bg-success" /> Live location
+            </span>
+            <span className="font-mono text-base-content/60">Opi junction · just now</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const enuguLines = agencies.filter((a) => a.state === "enugu").slice(0, 4);
 
@@ -167,7 +240,37 @@ export default function HomePage() {
         </ol>
       </section>
 
-      <section className="wrap pb-20" aria-labelledby="road-watch">
+      <section className="border-y border-base-300 bg-base-200" aria-labelledby="trip-guardian">
+        <div className="wrap grid items-center gap-12 py-20 lg:grid-cols-[1.1fr_1fr]">
+          <div>
+            <p className="eyebrow">Trip guardian</p>
+            <h2 id="trip-guardian" className="mt-3 text-4xl font-extrabold sm:text-5xl">
+              Travelling? Let someone follow you there.
+            </h2>
+            <p className="mt-4 max-w-xl text-lg text-base-content/75">
+              Before you set off, tell DavoRescue where you&apos;re going and when you expect to arrive. Up to three people you
+              choose can watch your journey from their phones.
+            </p>
+            <ol className="mt-8 space-y-5">
+              {tripSteps.map(({ Icon, title, body }) => (
+                <li key={title} className="flex gap-4">
+                  <Icon className="mt-1 size-6 shrink-0 text-primary" aria-hidden />
+                  <div>
+                    <p className="font-bold">{title}</p>
+                    <p className="text-base-content/70">{body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-8">
+              <TripGuardianCta />
+            </div>
+          </div>
+          <TripTextSketch />
+        </div>
+      </section>
+
+      <section className="wrap py-20" aria-labelledby="road-watch">
         <div className="grid items-center gap-6 rounded-box border border-base-300 p-6 sm:p-8 md:grid-cols-[1fr_auto]">
           <div className="flex gap-4">
             <Satellite className="mt-1 size-7 shrink-0 text-primary" aria-hidden />

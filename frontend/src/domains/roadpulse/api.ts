@@ -18,8 +18,12 @@ export const responderSignalsApi = {
 };
 
 export const tripsApi = {
-  start: (body: { destination: string; eta_minutes: number; contacts: { name: string; phone: string }[] }) =>
-    api<Trip>("/api/trips", { method: "POST", body }),
+  start: (body: {
+    destination: string;
+    eta_minutes: number;
+    message?: string;
+    contacts: { name: string; phone: string; email?: string }[];
+  }) => api<Trip>("/api/trips", { method: "POST", body }),
   active: () => api<{ trip: Trip | null }>("/api/trips/active"),
   ping: (id: string, lat: number, lng: number) => api<Trip>(`/api/trips/${id}/ping`, { method: "POST", body: { lat, lng } }),
   arrived: (id: string) => api<Trip>(`/api/trips/${id}/arrived`, { method: "POST" }),

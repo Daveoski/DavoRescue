@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.domains.auth.schemas import normalise_ng_phone
 
@@ -60,17 +60,30 @@ class SignalReviewIn(BaseModel):
 class Contact(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     phone: str
+    email: EmailStr | None = None
 
     @field_validator("phone")
     @classmethod
     def _phone(cls, v: str) -> str:
         return normalise_ng_phone(v)
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def _blank_email(cls, v):
+        return v or None
+
 
 class TripIn(BaseModel):
     destination: str = Field(min_length=2, max_length=120)
     eta_minutes: int = Field(ge=10, le=24 * 60)
     contacts: list[Contact] = Field(default_factory=list, max_length=3)
+    message: str | None = Field(default=None, max_length=200)
+
+    @field_validator("message")
+    @classmethod
+    def _message(cls, v: str | None) -> str | None:
+        tidy = " ".join((v or "").split())
+        return tidy or None
 
 
 class PingIn(BaseModel):

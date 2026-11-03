@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
-import { AuthForm } from "@/domains/auth/components/auth-form";
+import { AuthFormWithNext } from "@/domains/auth/components/auth-form-with-next";
 
 export const metadata: Metadata = {
   title: "Create an account",
@@ -15,7 +16,9 @@ export default function SignUpPage() {
       <p className="mt-2 mb-8 text-base-content/70">
         Free. Get alerted when a verified robbery, kidnapping, fire or crash is reported near you.
       </p>
-      <AuthForm mode="signup" />
+      <Suspense fallback={<div className="skeleton h-96 w-full" />}>
+        <AuthFormWithNext mode="signup" />
+      </Suspense>
     </div>
   );
 }

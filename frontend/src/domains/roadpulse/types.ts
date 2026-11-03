@@ -30,15 +30,27 @@ export type SignalResult = {
 
 export type TripState = "on_the_way" | "due" | "overdue" | "arrived" | "cancelled";
 
+export type TripContact = { name: string; phone: string; email?: string | null };
+
+export type Delivery = {
+  to: string;
+  channel: "sms" | "email";
+  event: "started" | "overdue" | "arrived";
+  status: "sent" | "failed" | "skipped";
+  detail: string | null;
+};
+
 export type Trip = {
   id: string;
   destination: string;
+  message: string | null;
   eta: string;
   state: TripState;
-  contacts: { name: string; phone: string }[];
+  contacts: TripContact[];
   share_url: string;
   last_seen_at: string | null;
   created_at: string;
+  deliveries: Delivery[];
 };
 
 export type SharedTrip = {

@@ -5,24 +5,22 @@ from __future__ import annotations
 import logging
 import secrets
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 from fastapi import HTTPException, status
 
-from app.core import http
 from app.core.config import get_settings
-from app.core.geo import maps_link
 from app.domains.alerts.service import push_to_user
 from app.domains.auth.schemas import UserOut
-from app.domains.dispatch.channels import send_sms
 from app.domains.roadpulse.schemas import TripIn
+from app.domains.roadpulse.trip_messages import notify_contacts
 
 log = logging.getLogger("davorescue.trips")
 
 GRACE = timedelta(minutes=15)  # after the ETA, before contacts are alerted
 SWEEP_EVERY_S = 60
-WAT = timezone(timedelta(hours=1), "WAT")
+TRIPS_PER_DAY = 10  # each trip texts up to three people; cap it so the feature can't be used to spam
 
 _last_sweep = 0.0
 
@@ -41,17 +39,30 @@ def share_url(token: str) -> str:
     return f"{get_settings().site_url}/trip/{token}"
 
 
+def deliveries(alert_log: list[dict]) -> list[dict]:
+    """Latest outcome per contact and channel, so the traveller can see who actually got the message."""
+    latest: dict[tuple[str, str], dict] = {}
+    for entry in alert_log:
+        latest[(entry["to"], entry["channel"])] = entry
+    return [
+        {"to": to, "channel": channel, "event": e["event"], "status": e["status"], "detail": e["detail"]}
+        for (to, channel), e in latest.items()
+    ]
+
+
 def owner_view(row: dict, now: datetime | None = None) -> dict:
     now = now or datetime.now(UTC)
     return {
         "id": str(row["id"]),
         "destination": row["destination"],
+        "message": row.get("message"),
         "eta": row["eta"],
         "state": trip_state(row, now),
         "contacts": row["contacts"],
         "share_url": share_url(row["share_token"]),
         "last_seen_at": row["last_seen_at"],
         "created_at": row["created_at"],
+        "deliveries": deliveries(row.get("alert_log") or []),
     }
 
 
@@ -71,19 +82,28 @@ def public_view(row: dict, traveller: str, now: datetime | None = None) -> dict:
 
 
 async def start(conn: asyncpg.Connection, user: UserOut, data: TripIn) -> dict:
+    today = await conn.fetchval(
+        "select count(*) from trips where user_id = $1::uuid and created_at > now() - interval '24 hours'", user.id
+    )
+    if today >= TRIPS_PER_DAY:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "You've started several trips today. Extend your current trip instead.")
+
     # One trip at a time: starting a new one closes the previous.
     await conn.execute(
         "update trips set status = 'cancelled', ended_at = now() where user_id = $1::uuid and status = 'active'", user.id
     )
     row = await conn.fetchrow(
-        """insert into trips (user_id, share_token, destination, eta, contacts, last_lat, last_lng, last_seen_at)
-           values ($1::uuid, $2, $3, now() + make_interval(mins => $4), $5, $6, $7,
-                   case when $6::double precision is null then null else now() end)
+        """insert into trips (user_id, share_token, destination, message, eta, contacts, last_lat, last_lng, last_seen_at)
+           values ($1::uuid, $2, $3, $4, now() + make_interval(mins => $5), $6, $7, $8,
+                   case when $7::double precision is null then null else now() end)
            returning *""",
-        user.id, secrets.token_urlsafe(9), data.destination, data.eta_minutes,
+        user.id, secrets.token_urlsafe(9), data.destination, data.message, data.eta_minutes,
         [c.model_dump() for c in data.contacts], user.last_lat, user.last_lng,
     )
-    return owner_view(dict(row))
+    trip = dict(row)
+    # Tell the contacts straight away, with the link to follow the trip live.
+    trip["alert_log"] = await notify_contacts(conn, trip, "started", user.full_name, share_url(trip["share_token"]))
+    return owner_view(trip)
 
 
 async def _own(conn: asyncpg.Connection, user: UserOut, trip_id: str) -> dict:
@@ -104,22 +124,27 @@ async def ping(conn: asyncpg.Connection, user: UserOut, trip_id: str, lat: float
     await _own(conn, user, trip_id)
     row = await conn.fetchrow(
         """update trips set last_lat = $3, last_lng = $4, last_seen_at = now()
-           where id = $1::uuid and user_id = $2::uuid returning *""",
+           where id = $1::uuid and user_id = $2::uuid and status = 'active' returning *""",
         trip_id, user.id, lat, lng,
     )
+    if not row:
+        # Contacts stop seeing movement once the traveller has arrived or cancelled.
+        raise HTTPException(status.HTTP_409_CONFLICT, "This trip has already ended")
     return owner_view(dict(row))
 
 
 async def finish(conn: asyncpg.Connection, user: UserOut, trip_id: str, outcome: str) -> dict:
     trip = await _own(conn, user, trip_id)
-    row = await conn.fetchrow(
+    if trip["status"] != "active":
+        return owner_view(trip)
+    row = dict(await conn.fetchrow(
         "update trips set status = $2, ended_at = now() where id = $1::uuid returning *", trip_id, outcome
-    )
-    if outcome == "arrived" and trip["overdue_alerted_at"]:
-        # Contacts were told to worry; tell them it's fine.
-        await _text_contacts(conn, dict(row), f"DavoRescue: {user.full_name.split()[0]} has arrived safely at "
-                                               f"{trip['destination']}. Thank you for looking out.")
-    return owner_view(dict(row))
+    ))
+    if outcome == "arrived":
+        # Contacts were told about the trip; close the loop.
+        log_entries = await notify_contacts(conn, row, "arrived", user.full_name, share_url(row["share_token"]))
+        row["alert_log"] = (row.get("alert_log") or []) + log_entries
+    return owner_view(row)
 
 
 async def extend(conn: asyncpg.Connection, user: UserOut, trip_id: str, minutes: int) -> dict:
@@ -141,18 +166,6 @@ async def shared(conn: asyncpg.Connection, token: str) -> dict:
     if not row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "This trip link isn't valid")
     return public_view(dict(row), row["full_name"])
-
-
-async def _text_contacts(conn: asyncpg.Connection, trip: dict, message: str) -> list[dict]:
-    results = []
-    async with http.client(timeout=8.0) as client:
-        for contact in trip["contacts"]:
-            outcome, detail = await send_sms(client, contact["phone"], message)
-            results.append({"to": contact["name"], "status": outcome, "detail": detail, "at": datetime.now(UTC).isoformat()})
-    await conn.execute(
-        "update trips set alert_log = alert_log || $2::jsonb where id = $1", trip["id"], results
-    )
-    return results
 
 
 async def sweep(conn: asyncpg.Connection) -> dict:
@@ -179,17 +192,7 @@ async def sweep(conn: asyncpg.Connection) -> dict:
     )
     for t in overdue:
         trip = dict(t)
-        name = trip["full_name"].split()[0]
-        where = (
-            f" Last seen {maps_link(trip['last_lat'], trip['last_lng'])}"
-            if trip["last_lat"] is not None else ""
-        )
-        await _text_contacts(
-            conn, trip,
-            f"DavoRescue: {name} hasn't checked in from a trip to {trip['destination']} (due "
-            f"{trip['eta'].astimezone(WAT):%H:%M}).{where} Track: {share_url(trip['share_token'])} "
-            "If you can't reach them, call 112.",
-        )
+        await notify_contacts(conn, trip, "overdue", trip["full_name"], share_url(trip["share_token"]))
         alerted += 1
     return {"reminded": reminded, "overdue_alerted": alerted}
 

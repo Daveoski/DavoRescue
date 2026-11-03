@@ -10,12 +10,13 @@ import { ApiError } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
 
 import { authApi } from "../api";
+import { withNext } from "../next-path";
 import { checkPassword, passwordStrength } from "../password";
 import { fieldErrors, signInSchema, signUpSchema, type SignUpValues } from "../schemas";
 import { isResponder, useAuth } from "../store";
 import { PasswordField, PasswordRules } from "./password-field";
 
-type Mode = "signin" | "signup";
+export type Mode = "signin" | "signup";
 type Values = SignUpValues & { identifier: string };
 
 const blank: Values = {
@@ -192,14 +193,14 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
         {mode === "signin" ? (
           <>
             New here?{" "}
-            <Link className="link link-primary" href="/signup">
+            <Link className="link link-primary" href={withNext("/signup", next)}>
               Create an account
             </Link>
           </>
         ) : (
           <>
             Already have an account?{" "}
-            <Link className="link link-primary" href="/signin">
+            <Link className="link link-primary" href={withNext("/signin", next)}>
               Sign in
             </Link>
           </>

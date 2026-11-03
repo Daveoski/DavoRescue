@@ -1,17 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, type ReactNode } from "react";
 
+import { withNext } from "../next-path";
 import { isResponder, useAuth, useSessionReady } from "../store";
 
-type Props = { children: ReactNode; responder?: boolean; next: string };
+type Props = {
+  children: ReactNode;
+  responder?: boolean;
+  next: string;
+  /** Go straight to sign-in instead of showing a sign-in prompt. */
+  redirect?: boolean;
+};
 
-export function RequireAuth({ children, responder = false, next }: Props) {
+export function RequireAuth({ children, responder = false, next, redirect = false }: Props) {
+  const router = useRouter();
   const ready = useSessionReady();
   const user = useAuth((s) => s.user);
+  const sendToSignIn = redirect && ready && !user;
 
-  if (!ready) return <div className="skeleton h-64 w-full" />;
+  useEffect(() => {
+    if (sendToSignIn) router.replace(withNext("/signin", next));
+  }, [sendToSignIn, router, next]);
+
+  if (!ready || sendToSignIn) return <div className="skeleton h-64 w-full" />;
 
   if (!user) {
     return (
@@ -23,10 +37,10 @@ export function RequireAuth({ children, responder = false, next }: Props) {
             : "Create a free account to get alerts about verified incidents near you."}
         </p>
         <div className="mt-5 flex gap-3">
-          <Link href={`/signin?next=${encodeURIComponent(next)}`} className="btn btn-primary">
+          <Link href={withNext("/signin", next)} className="btn btn-primary">
             Sign in
           </Link>
-          <Link href="/signup" className="btn">
+          <Link href={withNext("/signup", next)} className="btn">
             Create account
           </Link>
         </div>

@@ -49,6 +49,61 @@ def test_trip_contacts_are_validated_and_capped():
         TripIn(destination="Nsukka", eta_minutes=90, contacts=[{"name": f"c{i}", "phone": "08031234567"} for i in range(4)])
 
 
+TRIP = {
+    "destination": "Nsukka",
+    "eta": datetime(2026, 11, 3, 17, 30, tzinfo=UTC),
+    "message": "Heading out with Chidi in his grey Corolla, will call when I arrive at UNN main gate",
+    "last_lat": 6.62,
+    "last_lng": 7.41,
+}
+URL = "https://davorescue.vercel.app/trip/abc123"
+
+
+def test_started_sms_is_short_and_carries_link_and_note():
+    from app.domains.roadpulse.trip_messages import sms_text
+
+    sms = sms_text("started", "Ada", TRIP, URL)
+    assert "Ada is travelling to Nsukka, due 18:30" in sms  # shown in Nigeria time
+    assert URL in sms and "Heading out with Chidi" in sms
+    assert len(sms) <= 2 * 153  # two SMS pages at most
+
+
+def test_overdue_sms_includes_last_position_and_112():
+    from app.domains.roadpulse.trip_messages import sms_text
+
+    sms = sms_text("overdue", "Ada", TRIP, URL)
+    assert "hasn't checked in" in sms and "6.620000,7.410000" in sms and "112" in sms
+
+
+def test_email_escapes_user_text_and_has_live_link():
+    from app.domains.roadpulse.trip_messages import email_message
+
+    subject, html, text = email_message("started", "Ada", "Mum", {**TRIP, "message": "<script>alert(1)</script>"}, URL)
+    assert subject.startswith("Ada is travelling to Nsukka")
+    assert "<script>" not in html and "&lt;script&gt;" in html
+    assert "View live location" in html and URL in html and URL in text
+
+
+def test_deliveries_keep_latest_per_contact_and_channel():
+    from app.domains.roadpulse.trips import deliveries
+
+    log = [
+        {"event": "started", "to": "Mum", "channel": "sms", "status": "skipped", "detail": "x"},
+        {"event": "started", "to": "Mum", "channel": "email", "status": "sent", "detail": "y"},
+        {"event": "overdue", "to": "Mum", "channel": "sms", "status": "sent", "detail": "z"},
+    ]
+    result = {(d["to"], d["channel"]): d for d in deliveries(log)}
+    assert result[("Mum", "sms")]["event"] == "overdue" and result[("Mum", "email")]["status"] == "sent"
+
+
+def test_contact_email_optional_and_message_tidied():
+    trip = TripIn(destination="Nsukka", eta_minutes=60, message="  see   you  soon ",
+                  contacts=[{"name": "Mum", "phone": "08031234567", "email": ""}])
+    assert trip.contacts[0].email is None and trip.message == "see you soon"
+    with pytest.raises(ValidationError):
+        TripIn(destination="Nsukka", eta_minutes=60, contacts=[{"name": "Mum", "phone": "08031234567", "email": "not-an-email"}])
+
+
 def test_trip_states():
     eta = datetime(2026, 11, 3, 18, tzinfo=UTC)
     row = {"status": "active", "eta": eta}

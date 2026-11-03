@@ -214,3 +214,6 @@ create table if not exists trips (
 );
 
 create index if not exists trips_active_idx on trips (status, eta);
+
+-- The traveller's own note to their contacts, sent with the tracking link.
+alter table trips add column if not exists message text;

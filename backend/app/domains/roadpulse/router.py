@@ -76,6 +76,8 @@ async def active_trip(user: UserOut = Depends(current_user), conn: asyncpg.Conne
 
 @trips_router.post("/{trip_id}/ping")
 async def ping(trip_id: str, data: PingIn, user: UserOut = Depends(current_user), conn: asyncpg.Connection = Depends(get_db)) -> dict:
+    # Live pings arrive every ~20 s from each active trip, which keeps overdue alerts on time.
+    await trips.maybe_sweep(conn)
     return await trips.ping(conn, user, trip_id, data.lat, data.lng)
 
 
